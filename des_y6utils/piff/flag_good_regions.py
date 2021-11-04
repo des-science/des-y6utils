@@ -21,6 +21,10 @@ def _make_a_good_box(bad_msk, verbose=False):
     if not np.any(bad_msk[b["ymin"]:b["ymax"]+1, b["xmin"]:b["xmax"]+1]):
         return b, flag
 
+    if np.all(bad_msk[b["ymin"]:b["ymax"]+1, b["xmin"]:b["xmax"]+1]):
+        flag |= ALL_BAD
+        return b, flag
+
     def _condition(b):
         return (
             (b["xmin"] != b["xmax"])
