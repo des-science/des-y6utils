@@ -6,7 +6,6 @@ import numpy as np
 
 ALL_BAD = 2**0
 BAD_BOX = 2**1
-EMPTY_BOX = 2**2
 
 
 def _make_a_good_box(bad_msk, verbose=False):
@@ -25,34 +24,52 @@ def _make_a_good_box(bad_msk, verbose=False):
         flag |= ALL_BAD
         return b, flag
 
+    def _is_ok_range(b):
+        return (
+            (b["xmin"] <= b["xmax"])
+            and (b["ymin"] <= b["ymax"])
+        )
+
     def _condition(b):
         return (
-            (b["xmin"] != b["xmax"])
-            and (b["xmin"] != b["xmax"])
+            (b["xmin"] <= b["xmax"])
+            and (b["ymin"] <= b["ymax"])
             and np.any(bad_msk[b["ymin"]:b["ymax"]+1, b["xmin"]:b["xmax"]+1])
         )
 
     itr = 0
-    while _condition(b):
+    while _condition(b) and itr < 10_000:
         new_b = copy.deepcopy(b)
-        curr_frac = np.mean(bad_msk[b["ymin"]:b["ymax"]+1, b["xmin"]:b["xmax"]+1])
-        new_fracs = dict(
-            xmin=np.mean(bad_msk[b["ymin"]:b["ymax"]+1, b["xmin"]+1:b["xmax"]+1]),
-            xmax=np.mean(bad_msk[b["ymin"]:b["ymax"]+1, b["xmin"]:b["xmax"]+1-1]),
-            ymin=np.mean(bad_msk[b["ymin"]+1:b["ymax"]+1, b["xmin"]:b["xmax"]+1]),
-            ymax=np.mean(bad_msk[b["ymin"]:b["ymax"]+1-1, b["xmin"]:b["xmax"]+1]),
-        )
+        curr_frac = np.sum(bad_msk[b["ymin"]:b["ymax"]+1, b["xmin"]:b["xmax"]+1])
+        new_fracs = {}
+        for key, shift in zip(["ymax", "ymin", "xmax", "xmin"], [-1, 1, -1, 1]):
+            _new_b = copy.deepcopy(b)
+            _new_b[key] = b[key] + shift
+            if _is_ok_range(_new_b):
+                new_fracs[key] = np.sum(bad_msk[
+                    _new_b["ymin"]:_new_b["ymax"]+1,
+                    _new_b["xmin"]:_new_b["xmax"]+1]
+                )
+            else:
+                new_fracs[key] = np.nan
+
+        if np.all(np.isnan(list(new_fracs.values()))):
+            flag |= BAD_BOX
+            break
+
         mval = np.nanmin(list(new_fracs.values()))
         for key, shift in zip(["ymax", "ymin", "xmax", "xmin"], [-1, 1, -1, 1]):
-            if new_fracs[key] == mval:
+            _new_b = copy.deepcopy(b)
+            _new_b[key] = b[key] + shift
+            if new_fracs[key] == mval and _is_ok_range(_new_b):
                 new_b[key] = b[key] + shift
                 break
 
         if verbose:
             print("itr:", itr)
-            print("    curr frac bad:", curr_frac)
+            print("    curr # bad:", curr_frac)
             print(
-                "    new fracs:",
+                "    new # bad:",
                 " ".join("%s: %0.3f" % (k, v) for k, v in new_fracs.items()),
             )
             print("    new min val:", mval)
@@ -67,8 +84,12 @@ def _make_a_good_box(bad_msk, verbose=False):
         b = new_b
         itr += 1
 
-    if b["xmin"] == b["xmax"] or b["ymin"] == b["ymax"]:
-        flag |= EMPTY_BOX
+    if (
+        b["xmin"] > b["xmax"]
+        or b["ymin"] > b["ymax"]
+        or np.any(bad_msk[b["ymin"]:b["ymax"]+1, b["xmin"]:b["xmax"]+1])
+    ):
+        flag |= BAD_BOX
 
     return b, flag
 
