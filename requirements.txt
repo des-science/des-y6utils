@@ -2,3 +2,5 @@ ngmix
 numpy
 galsim
 piff
+scipy
+jax
