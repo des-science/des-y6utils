@@ -11,7 +11,7 @@ ALL_BAD = 2**0
 BAD_BOX = 2**1
 
 
-def _make_a_good_box(bad_msk, verbose=False):
+def _make_a_good_box_matts_hack(bad_msk, verbose=False):
     flag = 0
 
     b = dict(
@@ -93,6 +93,124 @@ def _make_a_good_box(bad_msk, verbose=False):
         or np.any(bad_msk[b["ymin"]:b["ymax"]+1, b["xmin"]:b["xmax"]+1])
     ):
         flag |= BAD_BOX
+
+    return b, flag
+
+
+def _make_a_good_box(bad_msk, verbose=False):
+    """Maximum Empty Rectangle algorithm 1 from Naamad, Lee & Hsu, 1984
+​
+    https://www.sciencedirect.com/science/article/pii/0166218X84901240
+
+    This function was written by Mike Jarvis.
+    """
+
+    # Check for possible quick return
+    flag = 0
+    b = dict(
+        xmax=bad_msk.shape[1]-1,
+        xmin=0,
+        ymax=bad_msk.shape[0]-1,
+        ymin=0,
+    )
+    if not np.any(bad_msk[b["ymin"]:b["ymax"]+1, b["xmin"]:b["xmax"]+1]):
+        return b, flag
+
+    if np.all(bad_msk[b["ymin"]:b["ymax"]+1, b["xmin"]:b["xmax"]+1]):
+        flag |= ALL_BAD
+        return b, flag
+
+    # Algorithm MERAlg 1 (S,Al,Ar,Ab,At,MAXR)
+    # Input: Four boundary values of a rectangle A: Al, Ar, Ab, and At,
+    #        (left, right, bottom and top), and a set
+    #        S = {P1, P2, ... , Pn), Pi = (Xi, Yi) of points in A.
+    #
+    # Output: MAXR, the area of the MER defined by S and A.
+    #      ** Note: we change this to output the bounding box, not the area. **
+    #
+    # Method:
+    #
+    # 1. Let MGAP be the maximum gap in {Al, Ar, X1, X2, ... ,Xn}.
+    # 2. MAXR = MGAP * (At-Ab).
+    # 3. Sort S according to the Y coordinates of the points in descending order.
+    # 4. For i = 1 to n do steps 5-8.
+    # 5. Tl=Al, Tr=Ar.
+    # 6. For j=i+1 to n do step 7.
+    # 7. If Tl < Xj < Tr
+    #    Then do steps 7.1-7.2.
+    #       7.1. MAXR = MAX(MAXR, (Tr-Tl)*(Yi-Yj)).
+    #       7.2. If Xj>Xi
+    #            then Tr=Xj
+    #            else Tl=Xj
+    # 8. MAXR=MAX(MAXR, (Tr-Tl)*(Yi-Ab)).
+    # 9. For i = 1 to n do steps 10-12.
+    # 10. Ri = MIN(Ar U {Xj | (Xj,Yj) in S, Yj > Yi and Xj > Xi}).
+    # 11. Li = MAX(Al U {Xj | (Xj,Yj) in S, Yj > Yi and Xj < Xi}).
+    # 12. MAXR = MAX(MAXR, (Ri - Li) * (At - Yi)).
+
+    # Here is that algorithm translated to our case.
+    # Note: there are some modifications require to account for the fact that we have
+    # squares, not points as our bad area.
+    al = ab = -1
+    ar = bad_msk.shape[1]
+    at = bad_msk.shape[0]
+    y, x = np.where(bad_msk)
+
+    allx = np.sort(np.concatenate([[al, ar], x]))
+    gaps = np.diff(allx)
+    imgap = np.argmax(np.diff(allx))
+    maxr = (gaps[imgap]-1) * (at-ab-1)
+
+    # Keep track of the best answer yet.
+    # 5 numbers are maxr, tl, tr, tb, tt
+    # Note: the bounds we keep track of are the masked x,y just outside the box we want.
+    best = [maxr, allx[imgap], allx[imgap+1], ab, at]
+    if verbose:
+        print('initial best = ', best)
+
+    index = np.argsort(-y)
+    x = x[index]
+    y = y[index]
+
+    def update(tl, tr, tb, tt):
+        maxr = (tr-tl-1) * (tt-tb-1)
+        if maxr > best[0]:
+            best[:] = maxr, tl, tr, tb, tt
+            if verbose:
+                print('best => ', best)
+
+    n = len(x)
+    for i in range(n):
+        tl = al
+        tr = ar
+        for j in range(i+1, n):
+            if tl < x[j] < tr and y[j] < y[i]:
+                update(tl, tr, y[j], y[i])
+                if x[j] > x[i]:
+                    tr = x[j]
+                else:
+                    tl = x[j]
+        update(tl, tr, ab, y[i])
+    for i in range(n):
+        ri = np.min(x[(y > y[i]) & (x > x[i])], initial=ar)
+        li = np.max(x[(y > y[i]) & (x <= x[i])], initial=al)
+        update(li, ri, y[i], at)
+        ri = np.min(x[(y > y[i]) & (x >= x[i])], initial=ar)
+        li = np.max(x[(y > y[i]) & (x < x[i])], initial=al)
+        update(li, ri, y[i], at)
+
+    b = dict(
+        xmin=best[1]+1,
+        xmax=best[2]-1,
+        ymin=best[3]+1,
+        ymax=best[4]-1,
+    )
+    if best[0] == 0:
+        flag = BAD_BOX
+
+    if verbose:
+        print('final best = ', best)
+        print('b = ', b)
 
     return b, flag
 

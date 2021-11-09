@@ -39,9 +39,9 @@ def test_flag_good_regions_make_a_good_box_cen():
     assert flag == 0
     assert b == {
         "xmin": 0,
-        "xmax": 14,
+        "xmax": 6,
         "ymin": 0,
-        "ymax": 5,
+        "ymax": 12,
     }
     assert not np.any(bad_msk[b["ymin"]:b["ymax"]+1, b["xmin"]:b["xmax"]+1])
 
