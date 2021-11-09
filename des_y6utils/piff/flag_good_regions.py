@@ -277,7 +277,7 @@ def measure_t_grid_for_piff_model(
     ):
         raise RuntimeError("The grid size must evenly divide 4096 and 2048.")
 
-    delta_to_pix = np.floor((grid_size-1)/2 + 0.5)
+    delta_to_pix = grid_size // 2
     y = np.arange(4096//grid_size)*grid_size + delta_to_pix
     x = np.arange(2048//grid_size)*grid_size + delta_to_pix
 
