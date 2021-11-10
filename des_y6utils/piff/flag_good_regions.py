@@ -298,14 +298,18 @@ def measure_t_grid_for_piff_model(
                     ).jacobian(),
                 )
             )
-            try:
-                res = AdmomFitter(
-                    rng=rng
-                ).go(obs, ngmix.moments.fwhm_to_T(1))
-                if res["flags"] == 0:
-                    t_arr[i, j] = res["T"]
-            except Exception:
-                pass
+            # try 3 times just in case it fails at random
+            for _ in range(3):
+                try:
+                    res = AdmomFitter(
+                        rng=rng
+                    ).go(obs, ngmix.moments.fwhm_to_T(1))
+                    if res["flags"] == 0:
+                        t_arr[i, j] = res["T"]
+                except Exception:
+                    continue
+                else:
+                    break
 
     return t_arr
 
@@ -617,6 +621,7 @@ def make_good_regions_for_piff_model_star_and_gal_grid(
 
     if np.all(np.isnan(data["t"])):
         flags |= ALL_BAD
+        bad_msk = np.ones_like(tg_arr).astype(bool)
 
     if flags == 0:
         msk = np.isfinite(data["t"])
@@ -626,6 +631,7 @@ def make_good_regions_for_piff_model_star_and_gal_grid(
         )
     else:
         ts_arr = None
+        bad_msk = np.ones_like(tg_arr).astype(bool)
 
     b = dict(
         xmax=tg_arr.shape[1]-1,
@@ -636,6 +642,7 @@ def make_good_regions_for_piff_model_star_and_gal_grid(
 
     if flags == 0 and (not np.any(np.isfinite(tg_arr))) or np.any(np.isnan(ts_arr)):
         flags |= ALL_BAD
+        bad_msk = np.ones_like(tg_arr).astype(bool)
 
     if flags == 0:
         tdiff = tg_arr - ts_arr
@@ -651,12 +658,18 @@ def make_good_regions_for_piff_model_star_and_gal_grid(
                 (~np.isfinite(tg_arr))
                 | (np.abs(tdiff - t_mn) > flag_bad_thresh * t_std)
             )
+            bad_msk = some_bad
             b, flag = _make_a_good_box(some_bad, verbose=verbose)
             flags |= flag
+        else:
+            bad_msk = np.zeros_like(tg_arr).astype(bool)
+    else:
+        bad_msk = np.ones_like(tg_arr).astype(bool)
 
     return dict(
         flags=flags,
         t_star=ts_arr,
         t_gal=tg_arr,
+        bad_msk=bad_msk,
         bbox=_rescale_b(b, grid_size),
     )
