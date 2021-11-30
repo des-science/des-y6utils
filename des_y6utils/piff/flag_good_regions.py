@@ -314,15 +314,13 @@ def measure_t_grid_for_piff_model(
     return t_arr
 
 
-def _get_star_stamp_pos(s, img, wgt):
+def _get_star_stamp_pos(s):
     xint = int(np.floor(s.x - 1 + 0.5))
     yint = int(np.floor(s.y - 1 + 0.5))
     bbox = 17
     bbox_2 = (bbox - 1)//2
 
     return dict(
-        img=img[yint-bbox_2: yint+bbox_2+1, xint-bbox_2: xint+bbox_2+1],
-        wgt=wgt[yint-bbox_2: yint+bbox_2+1, xint-bbox_2: xint+bbox_2+1],
         xstart=xint-bbox_2,
         ystart=yint-bbox_2,
         dim=bbox,
@@ -331,7 +329,7 @@ def _get_star_stamp_pos(s, img, wgt):
     )
 
 
-def _get_star_piff_obs(piff_mod, s, img, wgt, piff_prop):
+def _get_star_piff_obs(piff_mod, s, piff_prop):
 
     if piff_prop:
         kwargs = {
@@ -339,7 +337,7 @@ def _get_star_piff_obs(piff_mod, s, img, wgt, piff_prop):
         }
     else:
         kwargs = {}
-    sres = _get_star_stamp_pos(s, img, wgt)
+    sres = _get_star_stamp_pos(s)
 
     xv = sres["x"]+1
     yv = sres["y"]+1
@@ -361,31 +359,19 @@ def _get_star_piff_obs(piff_mod, s, img, wgt, piff_prop):
             y=cen[1]-1,
             x=cen[0]-1,
             wcs=wcs,
-        )
+        ),
+        meta=sres,
     )
-    star_obs = ngmix.Observation(
-        image=sres["img"],
-        weight=sres["wgt"],
-        jacobian=ngmix.Jacobian(
-            y=cen[1]-1,
-            x=cen[0]-1,
-            wcs=wcs,
-        )
-    )
-    return model_obs, star_obs, sres
+    return model_obs
 
 
-def measure_star_t_for_piff_model(piff_mod, img, wgt, piff_prop=None, seed=None):
-    """Make a bounding box of good regions for a given Piff model.
+def measure_star_t_for_piff_model(piff_mod, piff_prop=None, seed=None):
+    """Measure the model star sizes for a piff model.
 
     Parameters
     ----------
     piff_mod : piff Model
         The Piff model read via `piff.read`.
-    img : array
-        The image.
-    wgt : array
-        The weight
     piff_prop : str, optional
         The name of the piff property to use. Should be one of "GI_COLOR" or "IZ_COLOR"
         for Y6.
@@ -408,15 +394,15 @@ def measure_star_t_for_piff_model(piff_mod, img, wgt, piff_prop=None, seed=None)
 
     for i, s in enumerate(piff_mod.stars):
 
-        mobs, sobs, sres = _get_star_piff_obs(piff_mod, s, img, wgt, piff_prop)
+        mobs = _get_star_piff_obs(piff_mod, s, piff_prop)
 
         try:
             res = ngmix.admom.AdmomFitter(
                 rng=rng
             ).go(mobs, ngmix.moments.fwhm_to_T(1))
             if res["flags"] == 0:
-                data["x"][i] = sres["x"]
-                data["y"][i] = sres["y"]
+                data["x"][i] = mobs.meta["x"]
+                data["y"][i] = mobs.meta["y"]
                 data["t"][i] = res["T"]
         except Exception:
             pass
@@ -557,7 +543,7 @@ def make_good_regions_for_piff_model_gal_grid(
 
 
 def make_good_regions_for_piff_model_star_and_gal_grid(
-    piff_mod, img, wgt, piff_kwargs=None, grid_size=128, seed=None, verbose=False,
+    piff_mod, piff_kwargs=None, grid_size=128, seed=None, verbose=False,
     any_bad_thresh=5, flag_bad_thresh=5, degree=2,
 ):
     """Make a bounding box of good regions for a given Piff model.
@@ -566,10 +552,6 @@ def make_good_regions_for_piff_model_star_and_gal_grid(
     ----------
     piff_mod : piff Model
         The Piff model read via `piff.read`.
-    img : array
-        The image.
-    wgt : array
-        The weight.
     piff_kwargs : dict, optional
         Any extra keyword arguments to pass to `piff_mod.draw`. Typically these
         might include things like `{"GI_COLOR": 0.61}`.
@@ -616,7 +598,7 @@ def make_good_regions_for_piff_model_star_and_gal_grid(
         piff_mod, piff_kwargs, grid_size=grid_size, seed=seed
     )
     data = measure_star_t_for_piff_model(
-        piff_mod, img, wgt, piff_prop=list(piff_kwargs.keys())[0], seed=seed,
+        piff_mod, piff_prop=list(piff_kwargs.keys())[0], seed=seed,
     )
 
     if np.all(np.isnan(data["t"])):
