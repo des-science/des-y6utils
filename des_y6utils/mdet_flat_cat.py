@@ -103,14 +103,24 @@ def _mask_shear_arr(d, passphrase_file, fname):
         return d
 
 
-def _process_file(passphrase_file, fname, cols_to_keep):
+# def _process_file(passphrase_file, fname, cols_to_keep):
+#     arr = fitsio.read(fname)
+#     arr = _make_cuts(arr)
+#
+#     if passphrase_file is not None:
+#         arr = _mask_shear_arr(arr, passphrase_file, fname)
+#
+#     return {c: arr[c].copy() for c in cols_to_keep}
+
+
+def _process_file(passphrase_file, fname):
     arr = fitsio.read(fname)
     arr = _make_cuts(arr)
 
     if passphrase_file is not None:
         arr = _mask_shear_arr(arr, passphrase_file, fname)
 
-    return {c: arr[c].copy() for c in cols_to_keep}
+    return arr
 
 
 def make_hdf5_file(
@@ -122,67 +132,96 @@ def make_hdf5_file(
 ):
     columns_to_keep = columns_to_keep or COLUMNS_TO_KEEP
 
-    n_column_chunks = len(columns_to_keep) // columns_per_io_pass
-    if n_column_chunks * columns_per_io_pass < len(columns_to_keep):
-        n_column_chunks += 1
-
     input_fnames = sorted(glob.glob(input_tile_glob))
-    arrlen = None
-    with h5py.File(output_path, 'w') as fp:
-        for col_chunk in PBar(range(n_column_chunks), desc="column chunk"):
-            start_col = col_chunk * columns_per_io_pass
-            end_col = min(start_col + columns_per_io_pass, len(columns_to_keep))
-            col_data = {
-                cname: []
-                for cname in columns_to_keep[start_col:end_col]
-            }
+    n_files_per_chunk = 500
+    n_chunks = len(input_fnames) // n_files_per_chunk
+    if n_chunks * n_files_per_chunk < len(input_fnames):
+        n_chunks += 1
 
-            jobs = [
-                joblib.delayed(_process_file)(
-                    passphrase_file,
-                    fname,
-                    columns_to_keep[start_col:end_col],
+    for chunk in PBar(range(n_chunks), desc="writing_files"):
+        start = chunk * n_files_per_chunk
+        end = min(start + n_files_per_chunk, len(input_fnames))
+        fnames = input_fnames[start:end]
+        jobs = [
+            joblib.delayed(_process_file)(
+                passphrase_file,
+                fname,
+            )
+            for fname in fnames
+        ]
+        with joblib.Parallel(n_jobs=12, verbose=100) as par:
+            arrs = par(jobs)
+
+        opth = output_path + "_%05d.h5" % chunk
+        with h5py.File(opth, 'w') as fp:
+            for cname in columns_to_keep:
+                arr = np.concatenate(
+                    [arr[cname] for arr in arrs]
                 )
-                for fname in input_fnames
-            ]
-            with joblib.Parallel(n_jobs=12, verbose=100) as par:
-                arrs = par(jobs)
-            for arr in arrs:
-                for col_ind in range(start_col, end_col):
-                    cname = columns_to_keep[col_ind]
-                    col_data[cname].append(arr[cname])
-
-            # with ProcessPoolExecutor(max_workers=16) as exec:
-            #     futs = [
-            #         exec.submit(_process_file, passphrase_file, fname)
-            #         for fname in input_fnames
-            #     ]
-            #     print("\n", end="", flush=True)
-            #     for fut in PBar(futs, total=len(futs), desc="processing data"):
-            #         try:
-            #             arr = fut.result()
-            #             for col_ind in range(start_col, end_col):
-            #                 cname = columns_to_keep[col_ind]
-            #                 col_data[cname].append(arr[cname].copy())
-            #         except Exception as e:
-            #             print(e)
-
-            # for fname in PBar(input_fnames, desc="files"):
-            #     arr = _process_file(passphrase_file, fname)
-            #     for col_ind in range(start_col, end_col):
-            #         cname = columns_to_keep[col_ind]
-            #         col_data[cname].append(arr[cname].copy())
-
-            for cname in list(col_data):
-                arr = np.concatenate(col_data[cname])
-                del col_data[cname]
-                if arrlen is None:
-                    arrlen = len(arr)
-
-                assert len(arr) == arrlen
-
                 pth = os.path.join("catalogs", "mdet", cname)
                 _create_array_hdf5(pth, arr, fp)
+
+    # n_column_chunks = len(columns_to_keep) // columns_per_io_pass
+    # if n_column_chunks * columns_per_io_pass < len(columns_to_keep):
+    #     n_column_chunks += 1
+    #
+    # input_fnames = sorted(glob.glob(input_tile_glob))
+    # arrlen = None
+    # with h5py.File(output_path, 'w') as fp:
+    #     for col_chunk in PBar(range(n_column_chunks), desc="column chunk"):
+    #         start_col = col_chunk * columns_per_io_pass
+    #         end_col = min(start_col + columns_per_io_pass, len(columns_to_keep))
+    #         col_data = {
+    #             cname: []
+    #             for cname in columns_to_keep[start_col:end_col]
+    #         }
+    #
+    #         jobs = [
+    #             joblib.delayed(_process_file)(
+    #                 passphrase_file,
+    #                 fname,
+    #                 columns_to_keep[start_col:end_col],
+    #             )
+    #             for fname in input_fnames
+    #         ]
+    #         with joblib.Parallel(n_jobs=12, verbose=100) as par:
+    #             arrs = par(jobs)
+    #         for arr in arrs:
+    #             for col_ind in range(start_col, end_col):
+    #                 cname = columns_to_keep[col_ind]
+    #                 col_data[cname].append(arr[cname])
+    #
+    #         # with ProcessPoolExecutor(max_workers=16) as exec:
+    #         #     futs = [
+    #         #         exec.submit(_process_file, passphrase_file, fname)
+    #         #         for fname in input_fnames
+    #         #     ]
+    #         #     print("\n", end="", flush=True)
+    #         #     for fut in PBar(futs, total=len(futs), desc="processing data"):
+    #         #         try:
+    #         #             arr = fut.result()
+    #         #             for col_ind in range(start_col, end_col):
+    #         #                 cname = columns_to_keep[col_ind]
+    #         #                 col_data[cname].append(arr[cname].copy())
+    #         #         except Exception as e:
+    #         #             print(e)
+    #
+    #         # for fname in PBar(input_fnames, desc="files"):
+    #         #     arr = _process_file(passphrase_file, fname)
+    #         #     for col_ind in range(start_col, end_col):
+    #         #         cname = columns_to_keep[col_ind]
+    #         #         col_data[cname].append(arr[cname].copy())
+    #
+    #         for cname in list(col_data):
+    #             arr = np.concatenate(col_data[cname])
+    #             del col_data[cname]
+    #             if arrlen is None:
+    #                 arrlen = len(arr)
+    #
+    #             assert len(arr) == arrlen
+    #
+    #             pth = os.path.join("catalogs", "mdet", cname)
+    #             _create_array_hdf5(pth, arr, fp)
 
 
 @click.command()
