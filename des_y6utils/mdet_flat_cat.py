@@ -152,7 +152,7 @@ def make_hdf5_file(
             )
             for fname in fnames
         ]
-        with joblib.Parallel(n_jobs=12, verbose=100) as par:
+        with joblib.Parallel(n_jobs=8, verbose=100) as par:
             arrs = par(jobs)
 
         opth = output_path + "_%05d.h5" % chunk
