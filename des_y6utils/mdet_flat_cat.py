@@ -145,15 +145,24 @@ def make_hdf5_file(
         start = chunk * n_files_per_chunk
         end = min(start + n_files_per_chunk, len(input_fnames))
         fnames = input_fnames[start:end]
-        jobs = [
-            joblib.delayed(_process_file)(
-                passphrase_file,
-                fname,
-            )
-            for fname in fnames
-        ]
-        with joblib.Parallel(n_jobs=8, verbose=100) as par:
-            arrs = par(jobs)
+        try:
+            jobs = [
+                joblib.delayed(_process_file)(
+                    passphrase_file,
+                    fname,
+                )
+                for fname in fnames
+            ]
+            with joblib.Parallel(n_jobs=8, verbose=100) as par:
+                arrs = par(jobs)
+        except Exception:
+            arrs = [
+                _process_file(
+                    passphrase_file,
+                    fname,
+                )
+                for fname in PBar(fnames, desc="reading")
+            ]
 
         opth = output_path + "_%05d.h5" % chunk
         with h5py.File(opth, 'w') as fp:
