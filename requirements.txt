@@ -4,3 +4,7 @@ galsim
 piff
 scipy
 jax
+h5py
+hdf5plugin
+esutil
+click
