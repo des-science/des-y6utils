@@ -153,9 +153,10 @@ def make_hdf5_file(
                 )
                 for fname in fnames
             ]
-            with joblib.Parallel(n_jobs=8, verbose=100) as par:
+            with joblib.Parallel(n_jobs=4, verbose=100) as par:
                 arrs = par(jobs)
-        except Exception:
+        except Exception as e:
+            print("failed:", e, flush=True)
             arrs = [
                 _process_file(
                     passphrase_file,
