@@ -2,7 +2,7 @@ import glob
 import io
 import sys
 import os
-# from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor
 import contextlib
 import click
 
@@ -126,8 +126,8 @@ def make_hdf5_file(
     if n_column_chunks * columns_per_io_pass < len(columns_to_keep):
         n_column_chunks += 1
 
-    input_fnames = glob.glob(input_tile_glob)
-
+    input_fnames = sorted(glob.glob(input_tile_glob))
+    arrlen = None
     with h5py.File(output_path, 'w') as fp:
         for col_chunk in PBar(range(n_column_chunks), desc="column chunk"):
             start_col = col_chunk * columns_per_io_pass
@@ -137,15 +137,34 @@ def make_hdf5_file(
                 for cname in columns_to_keep[start_col:end_col]
             }
 
-            for fname in PBar(input_fnames, desc="files"):
-                arr = _process_file(passphrase_file, fname)
-                for col_ind in range(start_col, end_col):
-                    cname = columns_to_keep[col_ind]
-                    col_data[cname].append(arr[cname].copy())
+            with ProcessPoolExecutor(max_workers=16) as exec:
+                futs = [
+                    exec.submit(_process_file, passphrase_file, fname)
+                    for fname in input_fnames
+                ]
+                print("\n", end="", flush=True)
+                for fut in PBar(futs, total=len(futs), desc="processing data"):
+                    try:
+                        arr = fut.result()
+                        for col_ind in range(start_col, end_col):
+                            cname = columns_to_keep[col_ind]
+                            col_data[cname].append(arr[cname].copy())
+                    except Exception as e:
+                        print(e)
+
+            # for fname in PBar(input_fnames, desc="files"):
+            #     arr = _process_file(passphrase_file, fname)
+            #     for col_ind in range(start_col, end_col):
+            #         cname = columns_to_keep[col_ind]
+            #         col_data[cname].append(arr[cname].copy())
 
             for cname in list(col_data):
                 arr = np.concatenate(col_data[cname])
                 del col_data[cname]
+                if arrlen is None:
+                    arrlen = len(arr)
+
+                assert len(arr) == arrlen
 
                 pth = os.path.join("catalogs", "mdet", cname)
                 _create_array_hdf5(pth, arr, fp)
