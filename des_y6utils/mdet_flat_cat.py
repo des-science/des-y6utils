@@ -145,7 +145,7 @@ def make_hdf5_file(
                 )
                 for fname in input_fnames
             ]
-            with joblib.Parallel(n_jobs=8, verbose=100) as par:
+            with joblib.Parallel(n_jobs=16, verbose=100) as par:
                 arrs = par(jobs)
             for arr in arrs:
                 for col_ind in range(start_col, end_col):
