@@ -153,19 +153,19 @@ def make_hdf5_file(
 
 @click.command()
 @click.option(
-    "--input-glob", dtype=str, required=True,
+    "--input-glob", type=str, required=True,
     help="glob expression to specify all input files"
 )
 @click.option(
-    "--output", dtype=str, required=True,
+    "--output", type=str, required=True,
     help="/path/to/output.hdf5"
 )
 @click.option(
-    "--passphrase-file", dtype=str, required=True,
+    "--passphrase-file", type=str, required=True,
     help="path to passphrase file for masking"
 )
 @click.option(
-    "--cols-per-io-pass", dtype=int, default=5,
+    "--cols-per-io-pass", type=int, default=5,
     help="# of columns to read per I/O pass over the catalog"
 )
 def cli_hdf5(input_glob, output, passphrase_file, cols_per_io_pass):
