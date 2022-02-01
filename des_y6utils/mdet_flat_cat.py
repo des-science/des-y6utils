@@ -119,9 +119,7 @@ def _mask_shear_arr(d, passphrase_file, fname):
 def _process_file(passphrase_file, fname):
     arr = fitsio.read(fname)
     arr = _make_cuts(arr)
-
-    if passphrase_file is not None:
-        arr = _mask_shear_arr(arr, passphrase_file, fname)
+    arr = _mask_shear_arr(arr, passphrase_file, fname)
 
     return arr
 
