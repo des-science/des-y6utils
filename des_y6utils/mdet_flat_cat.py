@@ -173,6 +173,8 @@ def make_hdf5_file(
                 )
                 pth = os.path.join("catalogs", "mdet", cname)
                 _create_array_hdf5(pth, arr, fp)
+                del arr
+        del arrs
 
     # n_column_chunks = len(columns_to_keep) // columns_per_io_pass
     # if n_column_chunks * columns_per_io_pass < len(columns_to_keep):
