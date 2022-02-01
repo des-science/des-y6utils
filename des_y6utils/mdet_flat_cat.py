@@ -172,7 +172,7 @@ def cli_hdf5(input_glob, output, passphrase_file, cols_per_io_pass):
     """Combine mdet tile files into an HDF5 output."""
 
     make_hdf5_file(
-        input,
+        input_glob,
         output,
         None if passphrase_file == "null" else passphrase_file,
         columns_per_io_pass=5,
