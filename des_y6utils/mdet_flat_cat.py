@@ -2,9 +2,9 @@ import glob
 import io
 import sys
 import os
-from concurrent.futures import ProcessPoolExecutor
 import contextlib
 import click
+import joblib
 
 import numpy as np
 from esutil.pbar import PBar
@@ -137,20 +137,31 @@ def make_hdf5_file(
                 for cname in columns_to_keep[start_col:end_col]
             }
 
-            with ProcessPoolExecutor(max_workers=16) as exec:
-                futs = [
-                    exec.submit(_process_file, passphrase_file, fname)
-                    for fname in input_fnames
-                ]
-                print("\n", end="", flush=True)
-                for fut in PBar(futs, total=len(futs), desc="processing data"):
-                    try:
-                        arr = fut.result()
-                        for col_ind in range(start_col, end_col):
-                            cname = columns_to_keep[col_ind]
-                            col_data[cname].append(arr[cname].copy())
-                    except Exception as e:
-                        print(e)
+            jobs = [
+                joblib.delayed(_process_file)(passphrase_file, fname)
+                for fname in input_fnames
+            ]
+            with joblib.Parallel(n_jobs=8, verbose=100) as par:
+                arrs = par(jobs)
+            for arr in arrs:
+                for col_ind in range(start_col, end_col):
+                    cname = columns_to_keep[col_ind]
+                    col_data[cname].append(arr[cname].copy())
+
+            # with ProcessPoolExecutor(max_workers=16) as exec:
+            #     futs = [
+            #         exec.submit(_process_file, passphrase_file, fname)
+            #         for fname in input_fnames
+            #     ]
+            #     print("\n", end="", flush=True)
+            #     for fut in PBar(futs, total=len(futs), desc="processing data"):
+            #         try:
+            #             arr = fut.result()
+            #             for col_ind in range(start_col, end_col):
+            #                 cname = columns_to_keep[col_ind]
+            #                 col_data[cname].append(arr[cname].copy())
+            #         except Exception as e:
+            #             print(e)
 
             # for fname in PBar(input_fnames, desc="files"):
             #     arr = _process_file(passphrase_file, fname)
