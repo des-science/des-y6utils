@@ -138,7 +138,11 @@ def make_hdf5_file(
             }
 
             jobs = [
-                joblib.delayed(_process_file)(passphrase_file, fname)
+                joblib.delayed(_process_file)(
+                    passphrase_file,
+                    fname,
+                    columns_to_keep[start_col:end_col],
+                )
                 for fname in input_fnames
             ]
             with joblib.Parallel(n_jobs=8, verbose=100) as par:
