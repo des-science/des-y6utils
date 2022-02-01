@@ -209,6 +209,6 @@ def cli_hdf5(input_glob, output, passphrase_file, cols_per_io_pass):
         input_glob,
         output,
         None if passphrase_file == "null" else passphrase_file,
-        columns_per_io_pass=5,
+        columns_per_io_pass=cols_per_io_pass,
         columns_to_keep=None,
     )
