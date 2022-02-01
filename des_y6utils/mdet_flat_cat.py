@@ -103,14 +103,14 @@ def _mask_shear_arr(d, passphrase_file, fname):
         return d
 
 
-def _process_file(passphrase_file, fname):
+def _process_file(passphrase_file, fname, cols_to_keep):
     arr = fitsio.read(fname)
     arr = _make_cuts(arr)
 
     if passphrase_file is not None:
         arr = _mask_shear_arr(arr, passphrase_file, fname)
 
-    return arr
+    return {c: arr[c].copy() for c in cols_to_keep}
 
 
 def make_hdf5_file(
@@ -146,7 +146,7 @@ def make_hdf5_file(
             for arr in arrs:
                 for col_ind in range(start_col, end_col):
                     cname = columns_to_keep[col_ind]
-                    col_data[cname].append(arr[cname].copy())
+                    col_data[cname].append(arr[cname])
 
             # with ProcessPoolExecutor(max_workers=16) as exec:
             #     futs = [
