@@ -50,7 +50,7 @@ def _create_array_hdf5(pth, arr, fp):
     fp.create_dataset(
         pth,
         data=arr,
-        chunksize=(1_000_000,),
+        chunks=(1_000_000,),
         maxshape=(len(arr),),
         shape=(len(arr),),
         **hdf5plugin.Blosc(cname="snappy"),
