@@ -47,6 +47,9 @@ COLUMNS_TO_KEEP = [
 
 
 def _create_array_hdf5(pth, arr, fp):
+    if "U" in arr.dtype.descr:
+        arr = [a.encode("ascii") for a in arr]
+
     fp.create_dataset(
         pth,
         data=arr,
