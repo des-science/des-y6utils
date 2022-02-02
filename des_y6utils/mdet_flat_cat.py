@@ -172,18 +172,18 @@ def make_hdf5_file(
                     )
                 ] = fname
 
-        arrs = []
-        for fut in PBar(futs, desc="processing files"):
-            try:
-                res = fut.result()
-            except Exception as e:
-                print(e, flush=True)
-                res = None
+            arrs = []
+            for fut in PBar(futs, desc="processing files"):
+                try:
+                    res = fut.result()
+                except Exception as e:
+                    print(e, flush=True)
+                    res = None
 
-            if res is None:
-                print("\nfile %s failed" % futs[fut], flush=True)
-            else:
-                arrs.append(res)
+                if res is None:
+                    print("\nfile %s failed" % futs[fut], flush=True)
+                else:
+                    arrs.append(res)
 
         _build_file(arrs, chunk, output_path, columns_to_keep, tmpdir)
 
