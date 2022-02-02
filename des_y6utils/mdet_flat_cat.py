@@ -125,20 +125,7 @@ def _process_file(passphrase_file, fname):
     return arr
 
 
-def _build_file(passphrase_file, fnames, chunk, output_path, columns_to_keep, tmpdir):
-    arrs = []
-    for fname in PBar(fnames, desc="reading for chunk %d" % chunk):
-        print("\n", end="", flush=True)
-        try:
-            arr = _process_file(passphrase_file, fname)
-        except Exception:
-            arr = None
-
-        if arr is not None:
-            arrs.append(arr)
-        else:
-            print("\nskipped file %s" % fname, flush=True)
-
+def _build_file(arrs, chunk, output_path, columns_to_keep, tmpdir):
     opth = output_path + "_%05d.h5" % chunk
     with tempfile.TemporaryDirectory(dir=tmpdir) as tt:
         topth = os.path.join(tt, os.path.basename(opth))
@@ -171,26 +158,34 @@ def make_hdf5_file(
     if n_chunks * n_files_per_chunk < len(input_fnames):
         n_chunks += 1
 
-    with ProcessPoolExecutor(max_workers=6) as exec:
-        futs = {}
-        for chunk in range(n_chunks):
-            start = chunk * n_files_per_chunk
-            end = min(start + n_files_per_chunk, len(input_fnames))
-            fnames = input_fnames[start:end]
+    for chunk in PBar(range(n_chunks), desc="writing chunks"):
+        start = chunk * n_files_per_chunk
+        end = min(start + n_files_per_chunk, len(input_fnames))
+        fnames = input_fnames[start:end]
 
-            futs[
-                exec.submit(
-                    _build_file, passphrase_file, fnames, chunk, output_path,
-                    columns_to_keep, tmpdir,
-                )
-            ] = chunk
+        with ProcessPoolExecutor(max_workers=6) as exec:
+            futs = {}
+            for fname in fnames:
+                futs[
+                    exec.submit(
+                        _process_file, passphrase_file,
+                    )
+                ] = chunk
 
-        for fut in PBar(futs, desc="processing chunks"):
+        arrs = []
+        for fut in PBar(futs, desc="processing files"):
             try:
-                fut.result()
+                res = fut.result()
             except Exception as e:
                 print(e, flush=True)
-                print("\nchunk %d failed" % futs[fut], flush=True)
+                res = None
+
+            if res is None:
+                print("\nfile %s failed" % futs[fut], flush=True)
+            else:
+                arrs.append(res)
+
+        _build_file(arrs, chunk, output_path, columns_to_keep, tmpdir)
 
 
 @click.command()
