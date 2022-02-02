@@ -141,7 +141,10 @@ def _build_file(passphrase_file, fnames, chunk, output_path, columns_to_keep, tm
     with tempfile.TemporaryDirectory(dir=tmpdir) as tt:
         topth = os.path.join(tt, os.path.basename(opth))
         with h5py.File(topth, 'w') as fp:
-            for cname in columns_to_keep:
+            for cname in PBar(
+                columns_to_keep, desc="writing cols for chunk %d" % chunk
+            ):
+                print("\n", end="", flush=True)
                 arr = np.concatenate(
                     [arr[cname] for arr in arrs if arr is not None]
                 )
