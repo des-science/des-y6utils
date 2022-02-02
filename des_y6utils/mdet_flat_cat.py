@@ -156,7 +156,7 @@ def make_hdf5_file(
         end = min(start + n_files_per_chunk, len(input_fnames))
         fnames = input_fnames[start:end]
 
-        with ProcessPoolExecutor(max_workers=8) as exec:
+        with ProcessPoolExecutor(max_workers=12) as exec:
             futs = {
                 exec.submit(_process_file, passphrase_file, fname): fname
                 for fname in fnames
