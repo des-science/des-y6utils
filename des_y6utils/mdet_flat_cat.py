@@ -171,7 +171,7 @@ def make_hdf5_file(
     if n_chunks * n_files_per_chunk < len(input_fnames):
         n_chunks += 1
 
-    with ProcessPoolExecutor(max_workers=4) as exec:
+    with ProcessPoolExecutor(max_workers=6) as exec:
         futs = {}
         for chunk in range(n_chunks):
             start = chunk * n_files_per_chunk
