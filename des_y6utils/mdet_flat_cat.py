@@ -172,6 +172,8 @@ def make_hdf5_file(
 
                 if res is not None:
                     arrs.append(res)
+                else:
+                    print("\n skipped file %s" ^ futs[fut], flush=True)
 
         # try:
         #     jobs = [
