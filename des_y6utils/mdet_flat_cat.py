@@ -5,6 +5,7 @@ import os
 import contextlib
 import click
 import joblib
+import subprocess
 
 import numpy as np
 from esutil.pbar import PBar
@@ -117,6 +118,15 @@ def _mask_shear_arr(d, passphrase_file, fname):
 
 
 def _process_file(passphrase_file, fname):
+    try:
+        subprocess.run(
+            "python -c 'import fitsio; fitsio.read(\"%s\")'" % fname,
+            shell=True,
+            check=True,
+        )
+    except Exception:
+        return None
+
     arr = fitsio.read(fname)
     arr = _make_cuts(arr)
     arr = _mask_shear_arr(arr, passphrase_file, fname)
@@ -167,7 +177,7 @@ def make_hdf5_file(
         with h5py.File(opth, 'w') as fp:
             for cname in columns_to_keep:
                 arr = np.concatenate(
-                    [arr[cname] for arr in arrs]
+                    [arr[cname] for arr in arrs if arr is not None]
                 )
                 pth = os.path.join("catalogs", "mdet", cname)
                 _create_array_hdf5(pth, arr, fp)
