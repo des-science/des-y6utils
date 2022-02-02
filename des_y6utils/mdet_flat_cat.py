@@ -168,9 +168,9 @@ def make_hdf5_file(
             for fname in fnames:
                 futs[
                     exec.submit(
-                        _process_file, passphrase_file,
+                        _process_file, passphrase_file, fname
                     )
-                ] = chunk
+                ] = fname
 
         arrs = []
         for fut in PBar(futs, desc="processing files"):
