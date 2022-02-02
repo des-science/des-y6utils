@@ -139,6 +139,7 @@ def _process_file(passphrase_file, fname):
 def _build_file(passphrase_file, fnames, chunk, output_path, columns_to_keep):
     arrs = []
     for fname in PBar(fnames, desc="reading for chunk %d" % chunk):
+        print("\n", end="", flush=True)
         try:
             arr = _process_file(passphrase_file, fname)
         except Exception:
