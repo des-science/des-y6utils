@@ -130,10 +130,10 @@ def _build_file(arrs, chunk, output_path, columns_to_keep, tmpdir):
     with tempfile.TemporaryDirectory(dir=tmpdir) as tt:
         topth = os.path.join(tt, os.path.basename(opth))
         with h5py.File(topth, 'w') as fp:
+            print("\n", end="", flush=True)
             for cname in PBar(
                 columns_to_keep, desc="writing cols for chunk %d" % chunk
             ):
-                print("\n", end="", flush=True)
                 arr = np.concatenate(
                     [arr[cname] for arr in arrs if arr is not None]
                 )
@@ -172,6 +172,7 @@ def make_hdf5_file(
                     )
                 ] = fname
 
+            print("\n", end="", flush=True)
             arrs = []
             for fut in PBar(futs, desc="processing files"):
                 try:
