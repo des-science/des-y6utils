@@ -4,6 +4,7 @@ import sys
 import os
 import contextlib
 import click
+import gc
 import joblib
 import subprocess
 from concurrent.futures import ProcessPoolExecutor
@@ -155,7 +156,7 @@ def make_hdf5_file(
         end = min(start + n_files_per_chunk, len(input_fnames))
         fnames = input_fnames[start:end]
 
-        with ProcessPoolExecutor(max_workers=4) as exec:
+        with ProcessPoolExecutor(max_workers=8) as exec:
             futs = {
                 exec.submit(_process_file, passphrase_file, fname): fname
                 for fname in fnames
@@ -202,7 +203,10 @@ def make_hdf5_file(
                 _create_array_hdf5(pth, arr, fp)
                 del arr
         del arrs
-
+        del futs
+        del res
+        del fut
+        gc.collect()
     # n_column_chunks = len(columns_to_keep) // columns_per_io_pass
     # if n_column_chunks * columns_per_io_pass < len(columns_to_keep):
     #     n_column_chunks += 1
