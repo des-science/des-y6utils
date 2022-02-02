@@ -160,6 +160,8 @@ def make_hdf5_file(
                 exec.submit(_process_file, passphrase_file, fname): fname
                 for fname in fnames
             }
+
+            print("\n", end="", flush=True)
             arrs = []
             for fut in PBar(futs, desc="processing"):
                 try:
