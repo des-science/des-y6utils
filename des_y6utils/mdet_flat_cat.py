@@ -151,7 +151,7 @@ def _build_file(passphrase_file, fnames, chunk, output_path, columns_to_keep, tm
                 pth = os.path.join("catalogs", "mdet", cname)
                 _create_array_hdf5(pth, arr, fp)
 
-        os.system("mv %s %s" % (topth, opth))
+        os.system("cp %s %s" % (topth, opth))
 
 
 def make_hdf5_file(
