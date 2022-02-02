@@ -6,6 +6,7 @@ import contextlib
 import click
 import subprocess
 import tempfile
+import hdf5plugin
 from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
@@ -57,6 +58,7 @@ def _create_array_hdf5(pth, arr, fp):
         chunks=(1_000_000,),
         maxshape=(len(arr),),
         shape=(len(arr),),
+        **hdf5plugin.Blosc(cname="snappy")
     )
 
 
@@ -164,7 +166,7 @@ def make_hdf5_file(
     columns_to_keep = columns_to_keep or COLUMNS_TO_KEEP
 
     input_fnames = sorted(glob.glob(input_tile_glob))
-    n_files_per_chunk = 10
+    n_files_per_chunk = 100
     n_chunks = len(input_fnames) // n_files_per_chunk
     if n_chunks * n_files_per_chunk < len(input_fnames):
         n_chunks += 1
