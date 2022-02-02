@@ -4,8 +4,6 @@ import sys
 import os
 import contextlib
 import click
-import gc
-import joblib
 import subprocess
 from concurrent.futures import ProcessPoolExecutor
 
@@ -13,7 +11,6 @@ import numpy as np
 from esutil.pbar import PBar
 import fitsio
 import h5py
-import hdf5plugin
 
 from des_y6utils.shear_masking import generate_shear_masking_factor
 from ngmix.shape import (
@@ -59,7 +56,6 @@ def _create_array_hdf5(pth, arr, fp):
         chunks=(1_000_000,),
         maxshape=(len(arr),),
         shape=(len(arr),),
-        **hdf5plugin.Blosc(cname="snappy"),
     )
 
 
@@ -109,16 +105,6 @@ def _mask_shear_arr(d, passphrase_file, fname):
         return d
 
 
-# def _process_file(passphrase_file, fname, cols_to_keep):
-#     arr = fitsio.read(fname)
-#     arr = _make_cuts(arr)
-#
-#     if passphrase_file is not None:
-#         arr = _mask_shear_arr(arr, passphrase_file, fname)
-#
-#     return {c: arr[c].copy() for c in cols_to_keep}
-
-
 def _process_file(passphrase_file, fname):
     try:
         subprocess.run(
@@ -148,7 +134,7 @@ def _build_file(passphrase_file, fnames, chunk, output_path, columns_to_keep):
         if arr is not None:
             arrs.append(arr)
         else:
-            print("\n skipped file %s" % fname, flush=True)
+            print("\nskipped file %s" % fname, flush=True)
 
     opth = output_path + "_%05d.h5" % chunk
     with h5py.File(opth, 'w') as fp:
@@ -175,7 +161,7 @@ def make_hdf5_file(
     if n_chunks * n_files_per_chunk < len(input_fnames):
         n_chunks += 1
 
-    with ProcessPoolExecutor(max_workers=6) as exec:
+    with ProcessPoolExecutor(max_workers=4) as exec:
         futs = {}
         for chunk in PBar(range(n_chunks), desc="writing_files"):
             start = chunk * n_files_per_chunk
