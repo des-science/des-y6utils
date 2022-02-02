@@ -171,7 +171,7 @@ def make_hdf5_file(
 
     with ProcessPoolExecutor(max_workers=4) as exec:
         futs = {}
-        for chunk in PBar(range(n_chunks), desc="writing_files"):
+        for chunk in range(n_chunks):
             start = chunk * n_files_per_chunk
             end = min(start + n_files_per_chunk, len(input_fnames))
             fnames = input_fnames[start:end]
