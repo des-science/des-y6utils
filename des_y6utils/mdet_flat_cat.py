@@ -183,8 +183,9 @@ def make_hdf5_file(
         for fut in PBar(futs, desc="processing chunks"):
             try:
                 fut.result()
-            except Exception:
-                print("\n chunk %d failed" % futs[fut], flush=True)
+            except Exception as e:
+                print(e, flush=True)
+                print("\nchunk %d failed" % futs[fut], flush=True)
 
 
 @click.command()
