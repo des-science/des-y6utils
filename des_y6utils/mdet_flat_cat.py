@@ -176,7 +176,7 @@ def make_hdf5_file(
             futs[
                 exec.submit(
                     _build_file, passphrase_file, fnames, chunk, output_path,
-                    columns_to_keep
+                    columns_to_keep, tmpdir,
                 )
             ] = chunk
 
