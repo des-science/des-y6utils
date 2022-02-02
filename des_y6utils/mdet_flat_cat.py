@@ -5,6 +5,7 @@ import os
 import contextlib
 import click
 import subprocess
+import tempfile
 from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
@@ -122,7 +123,7 @@ def _process_file(passphrase_file, fname):
     return arr
 
 
-def _build_file(passphrase_file, fnames, chunk, output_path, columns_to_keep):
+def _build_file(passphrase_file, fnames, chunk, output_path, columns_to_keep, tmpdir):
     arrs = []
     for fname in PBar(fnames, desc="reading for chunk %d" % chunk):
         print("\n", end="", flush=True)
@@ -137,19 +138,24 @@ def _build_file(passphrase_file, fnames, chunk, output_path, columns_to_keep):
             print("\nskipped file %s" % fname, flush=True)
 
     opth = output_path + "_%05d.h5" % chunk
-    with h5py.File(opth, 'w') as fp:
-        for cname in columns_to_keep:
-            arr = np.concatenate(
-                [arr[cname] for arr in arrs if arr is not None]
-            )
-            pth = os.path.join("catalogs", "mdet", cname)
-            _create_array_hdf5(pth, arr, fp)
+    with tempfile.TemporaryDirectory(dir=tmpdir) as tt:
+        topth = os.path.join(tt, os.path.basename(opth))
+        with h5py.File(topth, 'w') as fp:
+            for cname in columns_to_keep:
+                arr = np.concatenate(
+                    [arr[cname] for arr in arrs if arr is not None]
+                )
+                pth = os.path.join("catalogs", "mdet", cname)
+                _create_array_hdf5(pth, arr, fp)
+
+        os.system("mv %s %s" % (topth, opth))
 
 
 def make_hdf5_file(
     input_tile_glob,
     output_path,
     passphrase_file,
+    tmpdir,
     columns_per_io_pass=5,
     columns_to_keep=None,
 ):
@@ -196,16 +202,21 @@ def make_hdf5_file(
     help="path to passphrase file for masking"
 )
 @click.option(
+    "--tmpdir", type=str, required=True,
+    help="temp. dir for writing"
+)
+@click.option(
     "--cols-per-io-pass", type=int, default=5,
     help="# of columns to read per I/O pass over the catalog"
 )
-def cli_hdf5(input_glob, output, passphrase_file, cols_per_io_pass):
+def cli_hdf5(input_glob, output, passphrase_file, tmpdir, cols_per_io_pass):
     """Combine mdet tile files into an HDF5 output."""
 
     make_hdf5_file(
         input_glob,
         output,
         passphrase_file,
+        tmpdir,
         columns_per_io_pass=cols_per_io_pass,
         columns_to_keep=None,
     )
