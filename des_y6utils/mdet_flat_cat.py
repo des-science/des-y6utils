@@ -6,6 +6,7 @@ import contextlib
 import click
 import joblib
 import subprocess
+from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 from esutil.pbar import PBar
@@ -153,25 +154,41 @@ def make_hdf5_file(
         start = chunk * n_files_per_chunk
         end = min(start + n_files_per_chunk, len(input_fnames))
         fnames = input_fnames[start:end]
-        try:
-            jobs = [
-                joblib.delayed(_process_file)(
-                    passphrase_file,
-                    fname,
-                )
+
+        with ProcessPoolExecutor(max_workers=4) as exec:
+            futs = {
+                exec.submit(_process_file, passphrase_file, fname): fname
                 for fname in fnames
-            ]
-            with joblib.Parallel(n_jobs=4, verbose=100) as par:
-                arrs = par(jobs)
-        except Exception as e:
-            print("failed:", e, flush=True)
-            arrs = [
-                _process_file(
-                    passphrase_file,
-                    fname,
-                )
-                for fname in PBar(fnames, desc="reading")
-            ]
+            }
+            arrs = []
+            for fut in PBar(futs, desc="processing"):
+                try:
+                    res = fut.result()
+                except Exception:
+                    res = None
+
+                if res is not None:
+                    arrs.append(res)
+
+        # try:
+        #     jobs = [
+        #         joblib.delayed(_process_file)(
+        #             passphrase_file,
+        #             fname,
+        #         )
+        #         for fname in fnames
+        #     ]
+        #     with joblib.Parallel(n_jobs=4, verbose=100) as par:
+        #         arrs = par(jobs)
+        # except Exception as e:
+        #     print("failed:", e, flush=True)
+        #     arrs = [
+        #         _process_file(
+        #             passphrase_file,
+        #             fname,
+        #         )
+        #         for fname in PBar(fnames, desc="reading")
+        #     ]
 
         opth = output_path + "_%05d.h5" % chunk
         with h5py.File(opth, 'w') as fp:
