@@ -136,6 +136,29 @@ def _process_file(passphrase_file, fname):
     return arr
 
 
+def _build_file(passphrase_file, fnames, chunk, output_path, columns_to_keep):
+    arrs = []
+    for fname in PBar(fnames, desc="reading for chunk %d" % chunk):
+        try:
+            arr = _process_file(passphrase_file, fname)
+        except Exception:
+            arr = None
+
+        if arr is not None:
+            arrs.append(arr)
+        else:
+            print("\n skipped file %s" % fname, flush=True)
+
+    opth = output_path + "_%05d.h5" % chunk
+    with h5py.File(opth, 'w') as fp:
+        for cname in columns_to_keep:
+            arr = np.concatenate(
+                [arr[cname] for arr in arrs if arr is not None]
+            )
+            pth = os.path.join("catalogs", "mdet", cname)
+            _create_array_hdf5(pth, arr, fp)
+
+
 def make_hdf5_file(
     input_tile_glob,
     output_path,
@@ -151,125 +174,25 @@ def make_hdf5_file(
     if n_chunks * n_files_per_chunk < len(input_fnames):
         n_chunks += 1
 
-    for chunk in PBar(range(n_chunks), desc="writing_files"):
-        start = chunk * n_files_per_chunk
-        end = min(start + n_files_per_chunk, len(input_fnames))
-        fnames = input_fnames[start:end]
+    with ProcessPoolExecutor(max_workers=6) as exec:
+        futs = {}
+        for chunk in PBar(range(n_chunks), desc="writing_files"):
+            start = chunk * n_files_per_chunk
+            end = min(start + n_files_per_chunk, len(input_fnames))
+            fnames = input_fnames[start:end]
 
-        with ProcessPoolExecutor(max_workers=6) as exec:
-            futs = {
-                exec.submit(_process_file, passphrase_file, fname): fname
-                for fname in fnames
-            }
-
-            print("\n", end="", flush=True)
-            arrs = []
-            for fut in PBar(futs, desc="processing"):
-                try:
-                    res = fut.result()
-                except Exception:
-                    res = None
-
-                if res is not None:
-                    arrs.append(res)
-                else:
-                    print("\n skipped file %s" ^ futs[fut], flush=True)
-
-        # try:
-        #     jobs = [
-        #         joblib.delayed(_process_file)(
-        #             passphrase_file,
-        #             fname,
-        #         )
-        #         for fname in fnames
-        #     ]
-        #     with joblib.Parallel(n_jobs=4, verbose=100) as par:
-        #         arrs = par(jobs)
-        # except Exception as e:
-        #     print("failed:", e, flush=True)
-        #     arrs = [
-        #         _process_file(
-        #             passphrase_file,
-        #             fname,
-        #         )
-        #         for fname in PBar(fnames, desc="reading")
-        #     ]
-
-        opth = output_path + "_%05d.h5" % chunk
-        with h5py.File(opth, 'w') as fp:
-            for cname in columns_to_keep:
-                arr = np.concatenate(
-                    [arr[cname] for arr in arrs if arr is not None]
+            futs[
+                exec.submit(
+                    _build_file, passphrase_file, fnames, chunk, output_path,
+                    columns_to_keep
                 )
-                pth = os.path.join("catalogs", "mdet", cname)
-                _create_array_hdf5(pth, arr, fp)
-                del arr
-        del arrs
-        del futs
-        del res
-        del fut
-        gc.collect()
-    # n_column_chunks = len(columns_to_keep) // columns_per_io_pass
-    # if n_column_chunks * columns_per_io_pass < len(columns_to_keep):
-    #     n_column_chunks += 1
-    #
-    # input_fnames = sorted(glob.glob(input_tile_glob))
-    # arrlen = None
-    # with h5py.File(output_path, 'w') as fp:
-    #     for col_chunk in PBar(range(n_column_chunks), desc="column chunk"):
-    #         start_col = col_chunk * columns_per_io_pass
-    #         end_col = min(start_col + columns_per_io_pass, len(columns_to_keep))
-    #         col_data = {
-    #             cname: []
-    #             for cname in columns_to_keep[start_col:end_col]
-    #         }
-    #
-    #         jobs = [
-    #             joblib.delayed(_process_file)(
-    #                 passphrase_file,
-    #                 fname,
-    #                 columns_to_keep[start_col:end_col],
-    #             )
-    #             for fname in input_fnames
-    #         ]
-    #         with joblib.Parallel(n_jobs=12, verbose=100) as par:
-    #             arrs = par(jobs)
-    #         for arr in arrs:
-    #             for col_ind in range(start_col, end_col):
-    #                 cname = columns_to_keep[col_ind]
-    #                 col_data[cname].append(arr[cname])
-    #
-    #         # with ProcessPoolExecutor(max_workers=16) as exec:
-    #         #     futs = [
-    #         #         exec.submit(_process_file, passphrase_file, fname)
-    #         #         for fname in input_fnames
-    #         #     ]
-    #         #     print("\n", end="", flush=True)
-    #         #     for fut in PBar(futs, total=len(futs), desc="processing data"):
-    #         #         try:
-    #         #             arr = fut.result()
-    #         #             for col_ind in range(start_col, end_col):
-    #         #                 cname = columns_to_keep[col_ind]
-    #         #                 col_data[cname].append(arr[cname].copy())
-    #         #         except Exception as e:
-    #         #             print(e)
-    #
-    #         # for fname in PBar(input_fnames, desc="files"):
-    #         #     arr = _process_file(passphrase_file, fname)
-    #         #     for col_ind in range(start_col, end_col):
-    #         #         cname = columns_to_keep[col_ind]
-    #         #         col_data[cname].append(arr[cname].copy())
-    #
-    #         for cname in list(col_data):
-    #             arr = np.concatenate(col_data[cname])
-    #             del col_data[cname]
-    #             if arrlen is None:
-    #                 arrlen = len(arr)
-    #
-    #             assert len(arr) == arrlen
-    #
-    #             pth = os.path.join("catalogs", "mdet", cname)
-    #             _create_array_hdf5(pth, arr, fp)
+            ] = chunk
+
+        for fut in PBar(futs, desc="processing chunks"):
+            try:
+                fut.result()
+            except Exception:
+                print("\n chunk %d failed" % futs[fut], flush=True)
 
 
 @click.command()
