@@ -156,7 +156,6 @@ def make_hdf5_file(
     output_path,
     passphrase_file,
     tmpdir,
-    columns_per_io_pass=5,
     columns_to_keep=None,
 ):
     columns_to_keep = columns_to_keep or COLUMNS_TO_KEEP
@@ -205,11 +204,7 @@ def make_hdf5_file(
     "--tmpdir", type=str, required=True,
     help="temp. dir for writing"
 )
-@click.option(
-    "--cols-per-io-pass", type=int, default=5,
-    help="# of columns to read per I/O pass over the catalog"
-)
-def cli_hdf5(input_glob, output, passphrase_file, tmpdir, cols_per_io_pass):
+def cli_hdf5(input_glob, output, passphrase_file, tmpdir):
     """Combine mdet tile files into an HDF5 output."""
 
     make_hdf5_file(
@@ -217,6 +212,5 @@ def cli_hdf5(input_glob, output, passphrase_file, tmpdir, cols_per_io_pass):
         output,
         passphrase_file,
         tmpdir,
-        columns_per_io_pass=cols_per_io_pass,
         columns_to_keep=None,
     )
