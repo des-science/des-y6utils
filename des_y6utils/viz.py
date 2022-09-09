@@ -113,7 +113,7 @@ def get_ngmix_meds_reader(tilename, pz_tag=None, bands=None):
 
     Returns
     -------
-    mbmeds : ngmix.medsreaders.MultiBandNGMixMEDS(mlist)
+    mbmeds : ngmix.medsreaders.MultiBandNGMixMEDS
         A MEDS reader for tile.
     """
     try:
