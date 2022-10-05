@@ -4,3 +4,4 @@ galsim
 piff
 scipy
 jax
+des-easyaccess
