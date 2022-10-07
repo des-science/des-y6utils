@@ -1,4 +1,9 @@
+import os
+import subprocess
+
 import numpy as np
+
+import healsparse
 
 
 def make_mdet_cuts(data, version, verbose=False):
@@ -104,7 +109,15 @@ def _make_mdet_cuts_v1(d, verbose=False):
         )
     )
     if verbose:
-        print("did final cuts", np.sum(msk))
+        print("did mdet cuts", np.sum(msk))
+
+    # apply the mask
+    mpth = _get_mask_path("y6-combined-hleda-gaiafull-hsmap16384-nomdet-v2.fits")
+    hmap = healsparse.HealSparseMap.read(mpth)
+    in_footprint = hmap.get_values_pos(d["ra"], d["dec"], valid_mask=True)
+    msk &= in_footprint
+    if verbose:
+        print("did mask cuts", np.sum(msk))
 
     return msk
 
@@ -139,3 +152,48 @@ def _compute_asinh_mags(flux, i):
     #     )
     # )
     return mag
+
+
+def _get_mask_path(fname):
+    # get or make meds dir
+    meds_dir = os.environ.get("MEDS_DIR", None)
+    if meds_dir is None:
+        meds_dir = os.environ.expandvars("${HOME}/MEDS_DIR")
+        os.makedirs(meds_dir, exist_ok=True)
+
+    # download if needed
+    fpth = os.path.join(meds_dir, fname)
+    if not os.path.exists(fname):
+        _download_fname_from_bnl(fpth)
+
+    return fpth
+
+
+def _download_fname_from_bnl(fpth):
+    fdir, fname = os.path.split(fpth)
+
+    wget_res = subprocess.run("which wget", shell=True)
+    curl_res = subprocess.run("which curl", shell=True)
+
+    bnl = "https://www.cosmo.bnl.gov/www/esheldon/data/y6-healsparse"
+    if wget_res.returncode == 0:
+        subprocess.run(
+            "cd %s && wget %s/%s" % (
+                fdir, bnl, fname,
+            ),
+            shell=True,
+            check=True,
+        )
+    elif curl_res.returncode == 0:
+        subprocess.run(
+            "cd %s && curl -L %s/%s --output %s" % (
+                fdir, bnl, fname, fname,
+            ),
+            shell=True,
+            check=True,
+        )
+    else:
+        raise RuntimeError(
+            "Could not download mask '%s' from BNL due "
+            "to wget or curl missing!" % fname,
+        )
