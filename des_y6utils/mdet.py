@@ -163,7 +163,7 @@ def _get_mask_path(fname):
 
     # download if needed
     fpth = os.path.join(meds_dir, fname)
-    if not os.path.exists(fname):
+    if not os.path.exists(fpth):
         _download_fname_from_bnl(fpth)
 
     return fpth
@@ -172,8 +172,8 @@ def _get_mask_path(fname):
 def _download_fname_from_bnl(fpth):
     fdir, fname = os.path.split(fpth)
 
-    wget_res = subprocess.run("which wget", shell=True)
-    curl_res = subprocess.run("which curl", shell=True)
+    wget_res = subprocess.run("which wget", shell=True, capture_output=True)
+    curl_res = subprocess.run("which curl", shell=True, capture_output=True)
 
     bnl = "https://www.cosmo.bnl.gov/www/esheldon/data/y6-healsparse"
     if wget_res.returncode == 0:
@@ -183,6 +183,7 @@ def _download_fname_from_bnl(fpth):
             ),
             shell=True,
             check=True,
+            capture_output=True,
         )
     elif curl_res.returncode == 0:
         subprocess.run(
@@ -191,6 +192,7 @@ def _download_fname_from_bnl(fpth):
             ),
             shell=True,
             check=True,
+            capture_output=True,
         )
     else:
         raise RuntimeError(
