@@ -28,6 +28,8 @@ def make_mdet_cuts(data, version, verbose=False):
         return _make_mdet_cuts_v1(data, verbose=verbose)
     elif str(version) == "2":
         return _make_mdet_cuts_v2(data, verbose=verbose)
+    elif str(version) == "3":
+        return _make_mdet_cuts_v3(data, verbose=verbose)
     else:
         raise ValueError("the mdet cut version '%r' is not recognized!" % version)
 
@@ -122,6 +124,21 @@ def _make_mdet_cuts_v1(d, verbose=False):
 
     # apply the mask
     mpth = _get_mask_path("y6-combined-hleda-gaiafull-hsmap16384-nomdet-v2.fits")
+    hmap = healsparse.HealSparseMap.read(mpth)
+    in_footprint = hmap.get_values_pos(d["ra"], d["dec"], valid_mask=True)
+    msk &= in_footprint
+    if verbose:
+        print("did mask cuts", np.sum(msk))
+
+    return msk
+
+
+def _make_mdet_cuts_v3(d, verbose=False):
+
+    msk = _make_mdet_cuts_v2(d, verbose=verbose)
+
+    # apply the mask
+    mpth = _get_mask_path("y6-combined-hleda-gaiafull-hsmap16384-nomdet.fits")
     hmap = healsparse.HealSparseMap.read(mpth)
     in_footprint = hmap.get_values_pos(d["ra"], d["dec"], valid_mask=True)
     msk &= in_footprint
