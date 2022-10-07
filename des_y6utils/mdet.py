@@ -27,7 +27,7 @@ def make_mdet_cuts(data, version, verbose=False):
     if str(version) == "1":
         return _make_mdet_cuts_v1(data, verbose=verbose)
     elif str(version) == "2":
-        return _make_mdet_cuts_v1(data, verbose=verbose)
+        return _make_mdet_cuts_v2(data, verbose=verbose)
     else:
         raise ValueError("the mdet cut version '%r' is not recognized!" % version)
 
