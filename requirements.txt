@@ -5,3 +5,4 @@ piff
 scipy
 jax
 des-easyaccess
+healsparse
