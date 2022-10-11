@@ -1,5 +1,6 @@
 import os
 import subprocess
+from functools import lru_cache
 
 import numpy as np
 
@@ -124,8 +125,7 @@ def _make_mdet_cuts_v1(d, verbose=False):
     msk = _make_mdet_cuts_raw_v1(d, verbose=verbose)
 
     # apply the mask
-    mpth = _get_mask_path("y6-combined-hleda-gaiafull-hsmap16384-nomdet.fits")
-    hmap = healsparse.HealSparseMap.read(mpth)
+    hmap = _read_hsp_mask("y6-combined-hleda-gaiafull-hsmap16384-nomdet.fits")
     in_footprint = hmap.get_values_pos(d["ra"], d["dec"], valid_mask=True)
     msk &= in_footprint
     if verbose:
@@ -164,6 +164,12 @@ def _compute_asinh_mags(flux, i):
     #     )
     # )
     return mag
+
+
+@lru_cache
+def _read_hsp_mask(fname):
+    mpth = _get_mask_path(fname)
+    return healsparse.HealSparseMap.read(mpth)
 
 
 def _get_mask_path(fname):
