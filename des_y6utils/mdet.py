@@ -170,7 +170,9 @@ def _get_mask_path(fname):
     # get or make meds dir
     meds_dir = os.environ.get("MEDS_DIR", None)
     if meds_dir is None:
-        meds_dir = os.environ.expandvars("${HOME}/MEDS_DIR")
+        meds_dir = os.path.expandvars(
+            os.path.expanduser("~/MEDS_DIR")
+        )
         os.makedirs(meds_dir, exist_ok=True)
 
     # download if needed
