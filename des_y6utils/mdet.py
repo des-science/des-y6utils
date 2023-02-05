@@ -457,7 +457,7 @@ def _make_mdet_cuts_raw_v3(
                 (n_terr*d["gauss_T_err"]/d["gauss_psf_T"])
             )
         )
-        & (d["gauss_T"] < max_t)
+        & ((d["gauss_T_ratio"] * d["gauss_psf_T"]) < max_t)
     )
     if verbose:
         print("did mdet cuts", np.sum(msk))
