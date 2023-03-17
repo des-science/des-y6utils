@@ -459,6 +459,9 @@ def _make_mdet_cuts_raw_v3(
         )
         & ((d["gauss_T_ratio"] * d["gauss_psf_T"]) < max_t)
     )
+    msk_superspreader = (((d['gauss_T_ratio']*d['gauss_psf_T']) * d['gauss_T_err'] > 1) 
+                            & ((d['gauss_T_ratio']*d['gauss_psf_T']) / d['gauss_T_err'] < 10))
+    msk &= ~msk_superspreader
     if verbose:
         print("did mdet cuts", np.sum(msk))
 
