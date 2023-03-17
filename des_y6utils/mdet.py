@@ -196,6 +196,7 @@ def _make_mdet_cuts_v3(d, verbose=False):
 
     return msk
 
+
 def _make_mdet_cuts_v4(d, verbose=False):
 
     msk = _make_mdet_cuts_raw_v34(
