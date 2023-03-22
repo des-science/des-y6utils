@@ -38,6 +38,8 @@ def make_mdet_cuts(data, version, verbose=False):
         return _make_mdet_cuts_v3(data, verbose=verbose)
     elif str(version) == "4":
         return _make_mdet_cuts_v4(data, verbose=verbose)
+    elif str(version) == "5":
+        return _make_mdet_cuts_v5(data, verbose=verbose)
     else:
         raise ValueError("the mdet cut version '%r' is not recognized!" % version)
 
@@ -50,7 +52,7 @@ def _make_mdet_cuts_gauss(
     min_t_ratio=0.5,
     max_mfrac=0.1,
     max_s2n=np.inf,
-    mask_name="y6-combined-hleda-gaiafull-des-stars-hsmap16384-nomdet-v2.fits",
+    mask_name="y6-combined-hleda-gaiafull-des-stars-hsmap16384-nomdet-v3.fits",
     max_t=100.0,
 ):
     """
@@ -59,7 +61,7 @@ def _make_mdet_cuts_gauss(
     msk : np.ndarray of bool
         A boolean array with the cuts. To cut the data, use `data[msk]`.
     """
-    msk = _make_mdet_cuts_raw_v34(
+    msk = _make_mdet_cuts_raw_v345(
         data,
         verbose=verbose,
         min_s2n=min_s2n,
@@ -174,7 +176,7 @@ def _make_mdet_cuts_v2(d, verbose=False):
 
 def _make_mdet_cuts_v3(d, verbose=False):
 
-    msk = _make_mdet_cuts_raw_v34(
+    msk = _make_mdet_cuts_raw_v345(
         d,
         verbose=verbose,
         min_s2n=10,
@@ -199,7 +201,7 @@ def _make_mdet_cuts_v3(d, verbose=False):
 
 def _make_mdet_cuts_v4(d, verbose=False):
 
-    msk = _make_mdet_cuts_raw_v34(
+    msk = _make_mdet_cuts_raw_v345(
         d,
         verbose=verbose,
         min_s2n=10,
@@ -218,6 +220,36 @@ def _make_mdet_cuts_v4(d, verbose=False):
     # apply the mask
     hmap = _read_hsp_mask(
         "y6-combined-hleda-gaiafull-des-stars-hsmap16384-nomdet-v2.fits"
+    )
+    in_footprint = hmap.get_values_pos(d["ra"], d["dec"], valid_mask=True)
+    msk &= in_footprint
+    if verbose:
+        print("did mask cuts", np.sum(msk))
+
+    return msk
+
+
+def _make_mdet_cuts_v5(d, verbose=False):
+
+    msk = _make_mdet_cuts_raw_v345(
+        d,
+        verbose=verbose,
+        min_s2n=10,
+        n_terr=0,
+        min_t_ratio=0.5,
+        max_mfrac=0.1,
+        max_s2n=np.inf,
+        max_t=np.inf,
+    )
+
+    size_sizeerr = (d['gauss_T_ratio']*d['gauss_psf_T']) * d['gauss_T_err']
+    size_s2n = (d['gauss_T_ratio']*d['gauss_psf_T']) / d['gauss_T_err']
+    msk_superspreader = ((size_sizeerr > 1) & (size_s2n < 10))
+    msk &= ~msk_superspreader
+
+    # apply the mask
+    hmap = _read_hsp_mask(
+        "y6-combined-hleda-gaiafull-des-stars-hsmap16384-nomdet-v3.fits"
     )
     in_footprint = hmap.get_values_pos(d["ra"], d["dec"], valid_mask=True)
     msk &= in_footprint
@@ -413,7 +445,7 @@ def _make_mdet_cuts_raw_v12(
     return msk
 
 
-def _make_mdet_cuts_raw_v34(
+def _make_mdet_cuts_raw_v345(
     d,
     *,
     min_s2n,
