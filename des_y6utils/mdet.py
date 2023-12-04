@@ -9,44 +9,44 @@ import healsparse
 
 def add_extinction_correction_columns(fold, fnew):
     """This function changes and adds columns for extinction corrected magnitudes.
-    pgauss_band_flux_* are the columns that are the corrected fluxes. 
-    pgauss_band_flux_*_nodered are the columns that used to be pgauss_band_flux_*. 
+    pgauss_band_flux_* are the columns that are the corrected fluxes.
+    pgauss_band_flux_*_nodered are the columns that used to be pgauss_band_flux_*.
 
-    Note: This function assumes you're working with fits files, not hdf5. 
+    Note: This function assumes you're working with fits files, not hdf5.
 
     Parameters
     ----------
     fold : original file path
     fnew : new file path
-    
+
     Returns
     -------
-    None (saves the new file) 
+    None (saves the new file)
     """
 
     import fitsio as fio
     d = fio.read(fold)
     bands = ['g', 'r', 'i', 'z']
     fits = fio.FITS(fnew, 'rw')
-    
-    # compute dereddened fluxes and 
+
+    # compute dereddened fluxes and
     # replace the entries of pgauss_flux_band_* with the dereddened fluxes.
     dustmap = _read_hsp_dustmap_local(
-                '/global/cfs/cdirs/des/y6-shear-catalogs/SFD_dust_4096.hsp'
-                )
+        '/global/cfs/cdirs/des/y6-shear-catalogs/SFD_dust_4096.hsp'
+    )
     dered = dustmap.get_values_pos(d["ra"], d["dec"])
     flux_og = []
-    for ii,b in enumerate(bands):
-        flux = np.copy(d["pgauss_band_flux_"+b])
+    for ii, b in enumerate(bands):
+        flux = np.copy(d["pgauss_band_flux_" + b])
         flux_og.append(flux)
-        mag_ = _compute_asinh_dered_mag(d["pgauss_band_flux_"+b], ii, dered)
+        mag_ = _compute_asinh_dered_mag(d["pgauss_band_flux_" + b], ii, dered)
         flux_ = _compute_asinh_flux(mag_, ii)
-        d["pgauss_band_flux_"+b] = flux_
+        d["pgauss_band_flux_" + b] = flux_
     fits.write(d)
 
-    # make _nodered array with pgauss_band_flux_* entries, and add them to fits. 
-    for ii,b in enumerate(bands):    
-        fits[-1].insert_column('pgauss_band_flux_'+b+'_nodered', flux_og[ii])
+    # make _nodered array with pgauss_band_flux_* entries, and add them to fits.
+    for ii, b in enumerate(bands):
+        fits[-1].insert_column('pgauss_band_flux_' + b + '_nodered', flux_og[ii])
 
     fits.close()
 
@@ -260,8 +260,8 @@ def _make_mdet_cuts_v4(d, verbose=False):
         max_t=np.inf,
     )
 
-    size_sizeerr = (d['gauss_T_ratio']*d['gauss_psf_T']) * d['gauss_T_err']
-    size_s2n = (d['gauss_T_ratio']*d['gauss_psf_T']) / d['gauss_T_err']
+    size_sizeerr = (d['gauss_T_ratio'] * d['gauss_psf_T']) * d['gauss_T_err']
+    size_s2n = (d['gauss_T_ratio'] * d['gauss_psf_T']) / d['gauss_T_err']
     msk_superspreader = ((size_sizeerr > 1) & (size_s2n < 10))
     msk &= ~msk_superspreader
 
@@ -290,8 +290,8 @@ def _make_mdet_cuts_v5(d, verbose=False):
         max_t=np.inf,
     )
 
-    size_sizeerr = (d['gauss_T_ratio']*d['gauss_psf_T']) * d['gauss_T_err']
-    size_s2n = (d['gauss_T_ratio']*d['gauss_psf_T']) / d['gauss_T_err']
+    size_sizeerr = (d['gauss_T_ratio'] * d['gauss_psf_T']) * d['gauss_T_err']
+    size_s2n = (d['gauss_T_ratio'] * d['gauss_psf_T']) / d['gauss_T_err']
     msk_superspreader = ((size_sizeerr > 1) & (size_s2n < 10))
     msk &= ~msk_superspreader
 
@@ -306,6 +306,7 @@ def _make_mdet_cuts_v5(d, verbose=False):
 
     return msk
 
+
 def _make_mdet_cuts_v6(d, verbose=False):
 
     msk = _make_mdet_cuts_raw_v6(
@@ -319,8 +320,8 @@ def _make_mdet_cuts_v6(d, verbose=False):
         max_t=20.0,
     )
 
-    size_sizeerr = (d['gauss_T_ratio']*d['gauss_psf_T']) * d['gauss_T_err']
-    size_s2n = (d['gauss_T_ratio']*d['gauss_psf_T']) / d['gauss_T_err']
+    size_sizeerr = (d['gauss_T_ratio'] * d['gauss_psf_T']) * d['gauss_T_err']
+    size_s2n = (d['gauss_T_ratio'] * d['gauss_psf_T']) / d['gauss_T_err']
     msk_superspreader = ((size_sizeerr > 1) & (size_s2n < 10))
     msk &= ~msk_superspreader
 
@@ -372,13 +373,12 @@ def _compute_asinh_dered_mag(flux, i, map):
 
     dered_fac = [3.186, 2.140, 1.196, 1.048]
     mag = _compute_asinh_mags(flux, i)
-    dered_mag = mag - dered_fac[i]*map
-    
+    dered_mag = mag - dered_fac[i] * map
+
     return dered_mag
 
 
 def _compute_asinh_flux(mag, i):
-
     """This function does the inverse process of compute_asinh_mag.
 
     Parameters
@@ -398,7 +398,7 @@ def _compute_asinh_flux(mag, i):
     b_array = np.array([3.27e-12, 4.83e-12, 6.0e-12, 9.0e-12])
     bscale = np.array(b_array) * 10.**(zp / 2.5)
     A = (2.5 * np.log10(1.0 / b_array[i]) - mag) * 0.4 * np.log(10)
-    flux = 2*bscale[i] * np.sinh(A)
+    flux = 2 * bscale[i] * np.sinh(A)
 
     return flux
 
@@ -412,6 +412,7 @@ def _read_hsp_mask(fname):
 @lru_cache
 def _read_hsp_mask_local(fname):
     return healsparse.HealSparseMap.read(fname)
+
 
 @lru_cache
 def _read_hsp_dustmap_local(fname):
@@ -547,11 +548,11 @@ def _make_mdet_cuts_raw_v12(
         & (mag_r < 26.5)
         & (mag_i < 26.2)
         & (mag_z < 25.6)
-        & (d["pgauss_T"] < (1.9 - 2.8*d["pgauss_T_err"]))
+        & (d["pgauss_T"] < (1.9 - 2.8 * d["pgauss_T_err"]))
         & (
             d["wmom_T_ratio"] >= np.maximum(
                 min_t_ratio,
-                (1.0 + n_terr*d["wmom_T_err"]/d["wmom_psf_T"])
+                (1.0 + n_terr * d["wmom_T_err"] / d["wmom_psf_T"])
             )
         )
     )
@@ -630,11 +631,11 @@ def _make_mdet_cuts_raw_v345(
         & (mag_r < 26.5)
         & (mag_i < 26.2)
         & (mag_z < 25.6)
-        & (d["pgauss_T"] < (1.2 - 3.1*d["pgauss_T_err"]))
+        & (d["pgauss_T"] < (1.2 - 3.1 * d["pgauss_T_err"]))
         & (
             d["gauss_T_ratio"] >= np.maximum(
                 min_t_ratio,
-                (n_terr*d["gauss_T_err"]/d["gauss_psf_T"])
+                (n_terr * d["gauss_T_err"] / d["gauss_psf_T"])
             )
         )
         & ((d["gauss_T_ratio"] * d["gauss_psf_T"]) < max_t)
@@ -660,8 +661,8 @@ def _make_mdet_cuts_raw_v6(
     """The raw v6 cuts come from analysis in Fall of 2023.
 
       - We implemented i-band magnitude cut at 24.5. TO-DO: still need to test.
-      - We implemented galaxy size cut at T=20. 
-      - We updated a cut in the pgauss T-Terr plane. 
+      - We implemented galaxy size cut at T=20.
+      - We updated a cut in the pgauss T-Terr plane.
     """
 
     mag_g = _compute_asinh_mags(d["pgauss_band_flux_g"], 0)
@@ -717,11 +718,11 @@ def _make_mdet_cuts_raw_v6(
         & (mag_r < 26.5)
         & (mag_i < 24.5)
         & (mag_z < 25.6)
-        & (d["pgauss_T"] < (1.6 - 3.1*d["pgauss_T_err"]))
+        & (d["pgauss_T"] < (1.6 - 3.1 * d["pgauss_T_err"]))
         & (
             d["gauss_T_ratio"] >= np.maximum(
                 min_t_ratio,
-                (n_terr*d["gauss_T_err"]/d["gauss_psf_T"])
+                (n_terr * d["gauss_T_err"] / d["gauss_psf_T"])
             )
         )
         & ((d["gauss_T_ratio"] * d["gauss_psf_T"]) < max_t)
