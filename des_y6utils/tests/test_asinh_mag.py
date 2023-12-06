@@ -9,9 +9,10 @@ def test_compute_asinh_flux():
 
     assert flux_input == flux_g
 
+
 def test_compute_asinh_dered_mag():
     flux_input = 10000
     mag_g = _compute_asinh_mags(flux_input, 0)
-    dered_mag_g = _compute_asinh_dered_mag(flux_input, 0, 1/3.186)
+    dered_mag_g = _compute_asinh_dered_mag(flux_input, 0, 1 / 3.186)
 
     assert mag_g == dered_mag_g
