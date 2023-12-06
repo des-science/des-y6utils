@@ -42,8 +42,7 @@ def add_extinction_correction_columns(fold, fnew, fdust):
         for ii, b in enumerate(bands):
             flux = np.copy(d["pgauss_band_flux_" + b])
             flux_og.append(flux)
-            mag_ = _compute_asinh_dered_mag(d["pgauss_band_flux_" + b], ii, dered)
-            flux_ = _compute_asinh_flux(mag_, ii)
+            flux_ = _compute_dered_flux(d["pgauss_band_flux_" + b], ii, dered)
             d["pgauss_band_flux_" + b] = flux_
 
         # make _nodered array with pgauss_band_flux_* entries, and add them to fits.
@@ -380,13 +379,30 @@ def _compute_asinh_mags(flux, i):
     return mag
 
 
-def _compute_asinh_dered_mag(flux, i, map):
+def _compute_dered_flux(flux, i, map):
+    """This function applies dereddening correction to fluxes.
+    Eli says we cannot apply the correction to the asinh mag.
+
+    Parameters
+    ----------
+    flux : float or np.ndarray
+        The flux.
+    i : int
+        The index of the band in griz (i.e., 0 for g, 1 for r, 2 for i, 3 for z).
+    map : float or np.ndarray
+        The E(B-V).
+
+    Returns
+    -------
+    dered_flux : float or np.ndarray
+        The dereddened flux.
+    """
 
     dered_fac = [3.186, 2.140, 1.196, 1.048]
-    mag = _compute_asinh_mags(flux, i)
-    dered_mag = mag - dered_fac[i] * map
+    dmag = dered_fac[i] * map
+    dered_flux = flux * 10**(dmag / 2.5)
 
-    return dered_mag
+    return dered_flux
 
 
 def _compute_asinh_flux(mag, i):
