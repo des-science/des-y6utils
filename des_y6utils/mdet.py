@@ -7,7 +7,7 @@ import numpy as np
 import healsparse
 
 
-def add_extinction_correction_columns(fold, fnew):
+def add_extinction_correction_columns(fold, fnew, fdust):
     """This function changes and adds columns for extinction corrected magnitudes.
     pgauss_band_flux_* are the columns that are the corrected fluxes.
     pgauss_band_flux_*_nodered are the columns that used to be pgauss_band_flux_*.
@@ -27,26 +27,37 @@ def add_extinction_correction_columns(fold, fnew):
     import fitsio as fio
     d = fio.read(fold)
     bands = ['g', 'r', 'i', 'z']
-    fits = fio.FITS(fnew, 'rw')
+    with fio.FITS(fnew, 'rw') as fits:
 
-    # compute dereddened fluxes and
-    # replace the entries of pgauss_flux_band_* with the dereddened fluxes.
-    dustmap = _read_hsp_dustmap_local(
-        '/global/cfs/cdirs/des/y6-shear-catalogs/SFD_dust_4096.hsp'
-    )
-    dered = dustmap.get_values_pos(d["ra"], d["dec"])
-    flux_og = []
-    for ii, b in enumerate(bands):
-        flux = np.copy(d["pgauss_band_flux_" + b])
-        flux_og.append(flux)
-        mag_ = _compute_asinh_dered_mag(d["pgauss_band_flux_" + b], ii, dered)
-        flux_ = _compute_asinh_flux(mag_, ii)
-        d["pgauss_band_flux_" + b] = flux_
-    fits.write(d)
+        # compute dereddened fluxes and
+        # replace the entries of pgauss_flux_band_* with the dereddened fluxes.
+        if os.path.exists(fdust):
+            # fdust : '/global/cfs/cdirs/des/y6-shear-catalogs/SFD_dust_4096.hsp'
+            dustmap = _read_hsp_dustmap_local(fdust)
+        else:
+            dustmap = _read_hsp_mask(fdust)
 
-    # make _nodered array with pgauss_band_flux_* entries, and add them to fits.
-    for ii, b in enumerate(bands):
-        fits[-1].insert_column('pgauss_band_flux_' + b + '_nodered', flux_og[ii])
+        dered = dustmap.get_values_pos(d["ra"], d["dec"])
+        flux_og = []
+        for ii, b in enumerate(bands):
+            flux = np.copy(d["pgauss_band_flux_" + b])
+            flux_og.append(flux)
+            mag_ = _compute_asinh_dered_mag(d["pgauss_band_flux_" + b], ii, dered)
+            flux_ = _compute_asinh_flux(mag_, ii)
+            d["pgauss_band_flux_" + b] = flux_
+
+        # make _nodered array with pgauss_band_flux_* entries, and add them to fits.
+        new_dt = np.dtype(d.dtype.descr + [('pgauss_band_flux_g_nodered', 'f8'),
+                                           ('pgauss_band_flux_r_nodered', 'f8'),
+                                           ('pgauss_band_flux_i_nodered', 'f8'),
+                                           ('pgauss_band_flux_z_nodered', 'f8'),])
+        d_ = np.zeros(d.shape, dtype=new_dt)
+        for col in d.dtype.names:
+            d_[col] = d[col]
+        for ii, b in enumerate(bands):
+            d_['pgauss_band_flux_' + b + '_nodered'] = flux_og[ii]
+
+        fits.write(d_)
 
     fits.close()
 
@@ -412,6 +423,12 @@ def _read_hsp_mask(fname):
 @lru_cache
 def _read_hsp_mask_local(fname):
     return healsparse.HealSparseMap.read(fname)
+
+
+@lru_cache
+def _read_hsp_dustmap(fname):
+    mpth = _get_mask_path(fname)
+    return healsparse.HealSparseMap.read(mpth)
 
 
 @lru_cache
