@@ -749,7 +749,7 @@ def _make_mdet_cuts_raw_v6(
         & np.isfinite(mag_z)
         & (mag_g < 26.5)
         & (mag_r < 26.5)
-        & (mag_i < 24.5)
+        & (mag_i < 24.7)  # used to eliminate photo-z outliers motivated by cosmos2020
         & (mag_z < 25.6)
         & (d["pgauss_T"] < (1.6 - 3.1 * d["pgauss_T_err"]))
         & (
