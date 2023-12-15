@@ -693,7 +693,7 @@ def _make_mdet_cuts_raw_v6(
 ):
     """The raw v6 cuts come from analysis in Fall of 2023.
 
-      - We implemented i-band magnitude cut at 24.5. TO-DO: still need to test.
+      - We implemented i-band magnitude cut at 24.7.
       - We implemented galaxy size cut at T=20.
       - We updated a cut in the pgauss T-Terr plane.
     """
@@ -750,6 +750,8 @@ def _make_mdet_cuts_raw_v6(
         & (mag_g < 26.5)
         & (mag_r < 26.5)
         & (mag_i < 24.7)  # used to eliminate photo-z outliers motivated by cosmos2020
+                          # the cut is 24.5 in cosmos mags with + 0.2 mags to correct
+                          # for the pgauss aperture
         & (mag_z < 25.6)
         & (d["pgauss_T"] < (1.6 - 3.1 * d["pgauss_T_err"]))
         & (
