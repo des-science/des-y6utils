@@ -7,60 +7,59 @@ import numpy as np
 import healsparse
 
 
-def add_extinction_correction_columns(fold, fnew, fdust):
-    """This function changes and adds columns for extinction corrected magnitudes.
-    pgauss_band_flux_* are the columns that are the corrected fluxes.
-    pgauss_band_flux_*_nodered are the columns that used to be pgauss_band_flux_*.
-
-    Note: This function assumes you're working with fits files, not hdf5.
+def add_extinction_correction_columns(
+    data, dust_map_filename="SFD_dust_4096.hsp"
+):
+    """This function adds dereddened columns to the data and copies the existing columns
+    to columns with '_nodered' appended as a suffix.
 
     Parameters
     ----------
-    fold : original file path
-    fnew : new file path
+    data : np.ndarray
+        A structured array of data to be dereddened.
+    dust_map_filename : str
+        The path/name of the dust map. Assumed to be in HealSparse format.
 
     Returns
     -------
-    None (saves the new file)
+    new_data : np.ndarray
+        The new, dereddened data.
     """
 
-    import fitsio as fio
-    d = fio.read(fold)
     bands = ['g', 'r', 'i', 'z']
-    with fio.FITS(fnew, 'rw') as fits:
 
-        # compute dereddened fluxes and
-        # replace the entries of pgauss_flux_band_* with the dereddened fluxes.
-        if os.path.exists(fdust):
-            # fdust : '/global/cfs/cdirs/des/y6-shear-catalogs/SFD_dust_4096.hsp'
-            dustmap = _read_hsp_dustmap_local(fdust)
-        else:
-            dustmap = _read_hsp_mask(fdust)
+    # compute dereddened fluxes and
+    # replace the entries of pgauss_flux_band_* with the dereddened fluxes.
+    if os.path.exists(dust_map_filename):
+        dustmap = _read_hsp_file_local(dust_map_filename)
+    else:
+        dustmap = _read_hsp_file(dust_map_filename)
 
-        dered = dustmap.get_values_pos(d["ra"], d["dec"])
-        flux_og = []
-        for ii, b in enumerate(bands):
-            flux = np.copy(d["pgauss_band_flux_" + b])
-            flux_og.append(flux)
-            flux_ = _compute_dered_flux(d["pgauss_band_flux_" + b], ii, dered)
-            d["pgauss_band_flux_" + b] = flux_
+    dered = dustmap.get_values_pos(data["ra"], data["dec"])
+    flux_og = []
+    for ii, b in enumerate(bands):
+        flux = np.copy(data["pgauss_band_flux_" + b])
+        flux_og.append(flux)
+        flux_ = _compute_dered_flux(data["pgauss_band_flux_" + b], ii, dered)
+        data["pgauss_band_flux_" + b] = flux_
 
-        # make _nodered array with pgauss_band_flux_* entries, and add them to fits.
-        new_dt = np.dtype(d.dtype.descr + [('pgauss_band_flux_g_nodered', 'f8'),
-                                           ('pgauss_band_flux_r_nodered', 'f8'),
-                                           ('pgauss_band_flux_i_nodered', 'f8'),
-                                           ('pgauss_band_flux_z_nodered', 'f8'),])
-        d_ = np.zeros(d.shape, dtype=new_dt)
-        for col in d.dtype.names:
-            d_[col] = d[col]
-        for ii, b in enumerate(bands):
-            d_['pgauss_band_flux_' + b + '_nodered'] = flux_og[ii]
+    # make _nodered array with pgauss_band_flux_* entries, and add them to fits.
+    new_dt = np.dtype(
+        data.dtype.descr
+        + [
+            ('pgauss_band_flux_g_nodered', 'f8'),
+            ('pgauss_band_flux_r_nodered', 'f8'),
+            ('pgauss_band_flux_i_nodered', 'f8'),
+            ('pgauss_band_flux_z_nodered', 'f8'),
+        ]
+    )
+    new_data = np.zeros(data.shape, dtype=new_dt)
+    for col in data.dtype.names:
+        new_data[col] = data[col]
+    for ii, b in enumerate(bands):
+        new_data['pgauss_band_flux_' + b + '_nodered'] = flux_og[ii]
 
-        fits.write(d_)
-
-    fits.close()
-
-    return None
+    return new_data
 
 
 def make_mdet_cuts(data, version, verbose=False):
@@ -132,9 +131,9 @@ def _make_mdet_cuts_gauss(
 
     # apply the mask
     if os.path.exists(mask_name):
-        hmap = _read_hsp_mask_local(mask_name)
+        hmap = _read_hsp_file_local(mask_name)
     else:
-        hmap = _read_hsp_mask(mask_name)
+        hmap = _read_hsp_file(mask_name)
     in_footprint = hmap.get_values_pos(
         data["ra"], data["dec"], valid_mask=True
     )
@@ -173,9 +172,9 @@ def _make_mdet_cuts_wmom(
 
     # apply the mask
     if os.path.exists(mask_name):
-        hmap = _read_hsp_mask_local(mask_name)
+        hmap = _read_hsp_file_local(mask_name)
     else:
-        hmap = _read_hsp_mask(mask_name)
+        hmap = _read_hsp_file(mask_name)
     in_footprint = hmap.get_values_pos(
         data["ra"], data["dec"], valid_mask=True
     )
@@ -199,7 +198,7 @@ def _make_mdet_cuts_v1(d, verbose=False):
     )
 
     # apply the mask
-    hmap = _read_hsp_mask("y6-combined-hleda-gaiafull-hsmap16384-nomdet.fits")
+    hmap = _read_hsp_file("y6-combined-hleda-gaiafull-hsmap16384-nomdet.fits")
     in_footprint = hmap.get_values_pos(d["ra"], d["dec"], valid_mask=True)
     msk &= in_footprint
     if verbose:
@@ -221,7 +220,7 @@ def _make_mdet_cuts_v2(d, verbose=False):
     )
 
     # apply the mask
-    hmap = _read_hsp_mask(
+    hmap = _read_hsp_file(
         "y6-combined-hleda-gaiafull-des-stars-hsmap16384-nomdet-v2.fits"
     )
     in_footprint = hmap.get_values_pos(d["ra"], d["dec"], valid_mask=True)
@@ -246,7 +245,7 @@ def _make_mdet_cuts_v3(d, verbose=False):
     )
 
     # apply the mask
-    hmap = _read_hsp_mask(
+    hmap = _read_hsp_file(
         "y6-combined-hleda-gaiafull-des-stars-hsmap16384-nomdet-v2.fits"
     )
     in_footprint = hmap.get_values_pos(d["ra"], d["dec"], valid_mask=True)
@@ -276,7 +275,7 @@ def _make_mdet_cuts_v4(d, verbose=False):
     msk &= ~msk_superspreader
 
     # apply the mask
-    hmap = _read_hsp_mask(
+    hmap = _read_hsp_file(
         "y6-combined-hleda-gaiafull-des-stars-hsmap16384-nomdet-v2.fits"
     )
     in_footprint = hmap.get_values_pos(d["ra"], d["dec"], valid_mask=True)
@@ -306,7 +305,7 @@ def _make_mdet_cuts_v5(d, verbose=False):
     msk &= ~msk_superspreader
 
     # apply the mask
-    hmap = _read_hsp_mask(
+    hmap = _read_hsp_file(
         "y6-combined-hleda-gaiafull-des-stars-hsmap16384-nomdet-v3.fits"
     )
     in_footprint = hmap.get_values_pos(d["ra"], d["dec"], valid_mask=True)
@@ -336,7 +335,7 @@ def _make_mdet_cuts_v6(d, verbose=False):
     msk &= ~msk_superspreader
 
     # apply the mask
-    hmap = _read_hsp_mask(
+    hmap = _read_hsp_file(
         "y6-combined-hleda-gaiafull-des-stars-hsmap131k-mdet-v1.hsp"
     )
     in_footprint = hmap.get_values_pos(d["ra"], d["dec"], valid_mask=True)
@@ -431,28 +430,17 @@ def _compute_asinh_flux(mag, i):
 
 
 @lru_cache
-def _read_hsp_mask(fname):
-    mpth = _get_mask_path(fname)
+def _read_hsp_file(fname):
+    mpth = _get_hsp_file_path(fname)
     return healsparse.HealSparseMap.read(mpth)
 
 
 @lru_cache
-def _read_hsp_mask_local(fname):
+def _read_hsp_file_local(fname):
     return healsparse.HealSparseMap.read(fname)
 
 
-@lru_cache
-def _read_hsp_dustmap(fname):
-    mpth = _get_mask_path(fname)
-    return healsparse.HealSparseMap.read(mpth)
-
-
-@lru_cache
-def _read_hsp_dustmap_local(fname):
-    return healsparse.HealSparseMap.read(fname)
-
-
-def _get_mask_path(fname):
+def _get_hsp_file_path(fname):
     # get or make meds dir
     meds_dir = os.environ.get("MEDS_DIR", None)
     if meds_dir is None:

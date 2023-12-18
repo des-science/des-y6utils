@@ -12,4 +12,3 @@ except PackageNotFoundError:
 
 from . import mdet
 from . import viz
-from . import piff
