@@ -47,10 +47,10 @@ def add_extinction_correction_columns(
     new_dt = np.dtype(
         data.dtype.descr
         + [
-            ('pgauss_band_flux_g_nodered', 'f8'),
-            ('pgauss_band_flux_r_nodered', 'f8'),
-            ('pgauss_band_flux_i_nodered', 'f8'),
-            ('pgauss_band_flux_z_nodered', 'f8'),
+            ('pgauss_band_flux_g_nodered', 'f4'),
+            ('pgauss_band_flux_r_nodered', 'f4'),
+            ('pgauss_band_flux_i_nodered', 'f4'),
+            ('pgauss_band_flux_z_nodered', 'f4'),
         ]
     )
     new_data = np.zeros(data.shape, dtype=new_dt)
