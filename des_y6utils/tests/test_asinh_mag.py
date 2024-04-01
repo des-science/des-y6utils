@@ -1,4 +1,4 @@
-from ..mdet import _compute_dered_flux, _compute_asinh_flux, _compute_asinh_mags
+from ..mdet import _compute_dered_flux_fac, _compute_asinh_flux, _compute_asinh_mags
 import math
 
 
@@ -13,7 +13,7 @@ def test_compute_asinh_flux():
 
 def test_compute_dered_flux():
     flux_input = 10000
-    dered_flux = _compute_dered_flux(flux_input, 0, 2.5 / 3.186)
+    dered_flux = flux_input * _compute_dered_flux_fac(0, 2.5 / 3.186)
 
     assert math.isclose(flux_input*10, dered_flux, rel_tol=1e-9)
 
