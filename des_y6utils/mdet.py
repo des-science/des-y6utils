@@ -43,6 +43,9 @@ def add_extinction_correction_columns(
         flux_ = _compute_dered_flux(data["pgauss_band_flux_" + b], ii, dered)
         data["pgauss_band_flux_" + b] = flux_
 
+        flux_err_ = _compute_dered_flux(data["pgauss_band_flux_err_" + b], ii, dered)
+        data["pgauss_band_flux_err_" + b] = flux_err_
+
     # make _nodered array with pgauss_band_flux_* entries, and add them to fits.
     new_dt = np.dtype(
         data.dtype.descr
