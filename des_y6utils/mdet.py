@@ -771,5 +771,3 @@ def _make_mdet_cuts_raw_v345(
         print("did mdet cuts", np.sum(msk))
 
     return msk
-
-
