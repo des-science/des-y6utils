@@ -556,7 +556,6 @@ def _download_fname_from_bnl(fpth):
     curl_res = subprocess.run("which curl", shell=True, capture_output=True)
 
     base_urls_to_try = [
-        "https://www.cosmo.bnl.gov/www/beckermr/des/y6/masks",
         "https://www.cosmo.bnl.gov/www/esheldon/data/y6-healsparse",
     ]
 
