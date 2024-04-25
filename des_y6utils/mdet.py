@@ -7,6 +7,9 @@ import numpy as np
 import healsparse
 
 
+DEFAULT_HSP_MASK = "y6-combined-hleda-gaiafull-des-stars-hsmap131k-mdet-extra-masks-v2.hsp"  # noqa: E501
+
+
 def add_extinction_correction_columns(
     data, dust_map_filename="SFD_dust_4096.hsp"
 ):
@@ -110,7 +113,7 @@ def _make_mdet_cuts_gauss(
     min_t_ratio=0.5,
     max_mfrac=0.1,
     max_s2n=np.inf,
-    mask_name="y6-combined-hleda-gaiafull-des-stars-hsmap131k-mdet-extra-masks-v2.hsp",
+    mask_name=DEFAULT_HSP_MASK,
     max_t=100.0,
 ):
     """
@@ -159,9 +162,7 @@ def _make_mdet_cuts_v6(d, verbose=False):
     )
 
     # apply the mask
-    hmap = _read_hsp_file(
-        "y6-combined-hleda-gaiafull-des-stars-hsmap131k-mdet-extra-masks-v2.hsp"
-    )
+    hmap = _read_hsp_file(DEFAULT_HSP_MASK)
     in_footprint = hmap.get_values_pos(d["ra"], d["dec"], valid_mask=True)
     msk &= in_footprint
     if verbose:
