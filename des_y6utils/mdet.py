@@ -110,7 +110,7 @@ def _make_mdet_cuts_gauss(
     min_t_ratio=0.5,
     max_mfrac=0.1,
     max_s2n=np.inf,
-    mask_name="y6-combined-hleda-gaiafull-des-stars-hsmap131k-mdet-v2.hsp",
+    mask_name="y6-combined-hleda-gaiafull-des-stars-hsmap131k-mdet-extra-masks-v2.hsp",
     max_t=100.0,
 ):
     """
@@ -141,6 +141,125 @@ def _make_mdet_cuts_gauss(
     msk &= in_footprint
     if verbose:
         print("did mask cuts", np.sum(msk))
+
+    return msk
+
+
+def _make_mdet_cuts_v6(d, verbose=False):
+
+    msk = _make_mdet_cuts_raw_v6(
+        d,
+        verbose=verbose,
+        min_s2n=10,
+        n_terr=0,
+        min_t_ratio=0.5,
+        max_mfrac=0.1,
+        max_s2n=np.inf,
+        max_t=20.0,
+    )
+
+    # apply the mask
+    hmap = _read_hsp_file(
+        "y6-combined-hleda-gaiafull-des-stars-hsmap131k-mdet-extra-masks-v2.hsp"
+    )
+    in_footprint = hmap.get_values_pos(d["ra"], d["dec"], valid_mask=True)
+    msk &= in_footprint
+    if verbose:
+        print("did mask cuts", np.sum(msk))
+
+    return msk
+
+
+def _make_mdet_cuts_raw_v6(
+    d,
+    *,
+    min_s2n,
+    n_terr,
+    min_t_ratio,
+    max_mfrac,
+    max_s2n,
+    max_t,
+    verbose=False,
+):
+    """The raw v6 cuts come from analysis in Fall of 2023.
+
+      - We implemented i-band magnitude cut at 24.7.
+      - We implemented galaxy size cut at T=20.
+      - We updated a cut in the pgauss T-Terr plane.
+    """
+
+    mag_g = _compute_asinh_mags(d["pgauss_band_flux_g"], 0)
+    mag_r = _compute_asinh_mags(d["pgauss_band_flux_r"], 1)
+    mag_i = _compute_asinh_mags(d["pgauss_band_flux_i"], 2)
+    mag_z = _compute_asinh_mags(d["pgauss_band_flux_z"], 3)
+
+    gmr = mag_g - mag_r
+    rmi = mag_r - mag_i
+    imz = mag_i - mag_z
+
+    msk = np.ones(d.shape[0]).astype(bool)
+
+    potential_flag_columns = [
+        "psfrec_flags",
+        "gauss_flags",
+        "pgauss_T_flags",
+        "pgauss_band_flux_flags_g",
+        "pgauss_band_flux_flags_r",
+        "pgauss_band_flux_flags_i",
+        "pgauss_band_flux_flags_z",
+        "mask_flags",
+    ]
+    for col in potential_flag_columns:
+        if col in d.dtype.names:
+            msk &= (d[col] == 0)
+            if verbose:
+                print("did cut " + col, np.sum(msk))
+
+    if "shear_bands" in d.dtype.names:
+        msk &= (d["shear_bands"] == "123")
+        if verbose:
+            print("did cut shear_bands", np.sum(msk))
+
+    if "pgauss_s2n" in d.dtype.names:
+        msk &= (d["pgauss_s2n"] > 5)
+        if verbose:
+            print("did cut pgauss_s2n", np.sum(msk))
+
+    # now do the rest
+    msk &= (
+        (d["gauss_s2n"] > min_s2n)
+        & (d["gauss_s2n"] < max_s2n)
+        & (d["mfrac"] < max_mfrac)
+        & (np.abs(gmr) < 5)
+        & (np.abs(rmi) < 5)
+        & (np.abs(imz) < 5)
+        & np.isfinite(mag_g)
+        & np.isfinite(mag_r)
+        & np.isfinite(mag_i)
+        & np.isfinite(mag_z)
+        & (mag_g < 26.5)
+        & (mag_r < 26.5)
+        & (mag_i < 24.7)  # used to eliminate photo-z outliers motivated by cosmos2020
+                          # the cut is 24.5 in cosmos mags with + 0.2 mags to correct
+                          # for the pgauss aperture
+        & (mag_z < 25.6)
+        & (d["pgauss_T"] < (1.6 - 3.1 * d["pgauss_T_err"]))
+        & (
+            d["gauss_T_ratio"] >= np.maximum(
+                min_t_ratio,
+                (n_terr * d["gauss_T_err"] / d["gauss_psf_T"])
+            )
+        )
+        & ((d["gauss_T_ratio"] * d["gauss_psf_T"]) < max_t)
+    )
+
+    size_sizeerr = (d['gauss_T_ratio'] * d['gauss_psf_T']) * d['gauss_T_err']
+    size_s2n = (d['gauss_T_ratio'] * d['gauss_psf_T']) / d['gauss_T_err']
+    msk_superspreader = ((size_sizeerr > 1) & (size_s2n < 10))
+    msk &= ~msk_superspreader
+
+    if verbose:
+        print("did mdet cuts", np.sum(msk))
 
     return msk
 
@@ -317,36 +436,6 @@ def _make_mdet_cuts_v5(d, verbose=False):
     return msk
 
 
-def _make_mdet_cuts_v6(d, verbose=False):
-
-    msk = _make_mdet_cuts_raw_v6(
-        d,
-        verbose=verbose,
-        min_s2n=10,
-        n_terr=0,
-        min_t_ratio=0.5,
-        max_mfrac=0.1,
-        max_s2n=np.inf,
-        max_t=20.0,
-    )
-
-    size_sizeerr = (d['gauss_T_ratio'] * d['gauss_psf_T']) * d['gauss_T_err']
-    size_s2n = (d['gauss_T_ratio'] * d['gauss_psf_T']) / d['gauss_T_err']
-    msk_superspreader = ((size_sizeerr > 1) & (size_s2n < 10))
-    msk &= ~msk_superspreader
-
-    # apply the mask
-    hmap = _read_hsp_file(
-        "y6-combined-hleda-gaiafull-des-stars-hsmap131k-mdet-v2.hsp"
-    )
-    in_footprint = hmap.get_values_pos(d["ra"], d["dec"], valid_mask=True)
-    msk &= in_footprint
-    if verbose:
-        print("did mask cuts", np.sum(msk))
-
-    return msk
-
-
 def _compute_asinh_mags(flux, i):
     """This function and coefficients are from from Eli. Ask him.
 
@@ -465,25 +554,39 @@ def _download_fname_from_bnl(fpth):
     wget_res = subprocess.run("which wget", shell=True, capture_output=True)
     curl_res = subprocess.run("which curl", shell=True, capture_output=True)
 
-    bnl = "https://www.cosmo.bnl.gov/www/esheldon/data/y6-healsparse"
+    base_urls_to_try = [
+        "https://www.cosmo.bnl.gov/www/beckermr/des/y6/masks",
+        "https://www.cosmo.bnl.gov/www/esheldon/data/y6-healsparse",
+    ]
+
     if wget_res.returncode == 0:
-        subprocess.run(
-            "cd %s && wget %s/%s" % (
-                fdir, bnl, fname,
-            ),
-            shell=True,
-            check=True,
-            capture_output=True,
-        )
+        for bnl in base_urls_to_try:
+            ret = subprocess.run(
+                "cd %s && wget %s/%s" % (
+                    fdir, bnl, fname,
+                ),
+                shell=True,
+                capture_output=True,
+            )
+            if ret.returncode == 0:
+                break
+
+        ret.check_returncode()
+
     elif curl_res.returncode == 0:
-        subprocess.run(
-            "cd %s && curl -L %s/%s --output %s" % (
-                fdir, bnl, fname, fname,
-            ),
-            shell=True,
-            check=True,
-            capture_output=True,
-        )
+        for bnl in base_urls_to_try:
+            ret = subprocess.run(
+                "cd %s && curl -L %s/%s --output %s" % (
+                    fdir, bnl, fname, fname,
+                ),
+                shell=True,
+                capture_output=True,
+            )
+            if ret.returncode == 0:
+                break
+
+        ret.check_returncode()
+
     else:
         raise RuntimeError(
             "Could not download mask '%s' from BNL due "
@@ -670,90 +773,3 @@ def _make_mdet_cuts_raw_v345(
     return msk
 
 
-def _make_mdet_cuts_raw_v6(
-    d,
-    *,
-    min_s2n,
-    n_terr,
-    min_t_ratio,
-    max_mfrac,
-    max_s2n,
-    max_t,
-    verbose=False,
-):
-    """The raw v6 cuts come from analysis in Fall of 2023.
-
-      - We implemented i-band magnitude cut at 24.7.
-      - We implemented galaxy size cut at T=20.
-      - We updated a cut in the pgauss T-Terr plane.
-    """
-
-    mag_g = _compute_asinh_mags(d["pgauss_band_flux_g"], 0)
-    mag_r = _compute_asinh_mags(d["pgauss_band_flux_r"], 1)
-    mag_i = _compute_asinh_mags(d["pgauss_band_flux_i"], 2)
-    mag_z = _compute_asinh_mags(d["pgauss_band_flux_z"], 3)
-
-    gmr = mag_g - mag_r
-    rmi = mag_r - mag_i
-    imz = mag_i - mag_z
-
-    msk = np.ones(d.shape[0]).astype(bool)
-
-    potential_flag_columns = [
-        "psfrec_flags",
-        "gauss_flags",
-        "pgauss_T_flags",
-        "pgauss_band_flux_flags_g",
-        "pgauss_band_flux_flags_r",
-        "pgauss_band_flux_flags_i",
-        "pgauss_band_flux_flags_z",
-        "mask_flags",
-    ]
-    for col in potential_flag_columns:
-        if col in d.dtype.names:
-            msk &= (d[col] == 0)
-            if verbose:
-                print("did cut " + col, np.sum(msk))
-
-    if "shear_bands" in d.dtype.names:
-        msk &= (d["shear_bands"] == "123")
-        if verbose:
-            print("did cut shear_bands", np.sum(msk))
-
-    if "pgauss_s2n" in d.dtype.names:
-        msk &= (d["pgauss_s2n"] > 5)
-        if verbose:
-            print("did cut pgauss_s2n", np.sum(msk))
-
-    # now do the rest
-    msk &= (
-        (d["gauss_s2n"] > min_s2n)
-        & (d["gauss_s2n"] < max_s2n)
-        & (d["mfrac"] < max_mfrac)
-        & (np.abs(gmr) < 5)
-        & (np.abs(rmi) < 5)
-        & (np.abs(imz) < 5)
-        & np.isfinite(mag_g)
-        & np.isfinite(mag_r)
-        & np.isfinite(mag_i)
-        & np.isfinite(mag_z)
-        & (mag_g < 26.5)
-        & (mag_r < 26.5)
-        & (mag_i < 24.7)  # used to eliminate photo-z outliers motivated by cosmos2020
-                          # the cut is 24.5 in cosmos mags with + 0.2 mags to correct
-                          # for the pgauss aperture
-        & (mag_z < 25.6)
-        & (d["pgauss_T"] < (1.6 - 3.1 * d["pgauss_T_err"]))
-        & (
-            d["gauss_T_ratio"] >= np.maximum(
-                min_t_ratio,
-                (n_terr * d["gauss_T_err"] / d["gauss_psf_T"])
-            )
-        )
-        & ((d["gauss_T_ratio"] * d["gauss_psf_T"]) < max_t)
-    )
-
-    if verbose:
-        print("did mdet cuts", np.sum(msk))
-
-    return msk
